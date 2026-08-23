@@ -63,9 +63,8 @@ export default function Profile() {
               Senior Frontend Dev • San Francisco, CA
             </p>
             
-            {/* Connected Pills */}
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
-              {["github", "leetcode", "kaggle"].map((source) => (
+              {["github", "leetcode", "codeforces", "kaggle", "resume", "projects", "portfolio"].map((source) => (
                 <span 
                   key={source} 
                   className="text-[10px] font-bold text-[#6B7280] bg-[#FAFBFC] border border-[#E5E9F0] px-2.5 py-0.5 rounded-lg uppercase tracking-wider"

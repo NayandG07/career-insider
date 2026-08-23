@@ -10,6 +10,9 @@ export default function Settings() {
     leetcode: true,
     kaggle: false,
     codeforces: false,
+    resume: true,
+    projects: true,
+    portfolio: true,
     report: true,
     matches: true,
     reminders: false
@@ -42,6 +45,21 @@ export default function Settings() {
       key: 'codeforces',
       name: "Codeforces Contest Submissions",
       desc: "Syncs live competitive coding statistics."
+    },
+    {
+      key: 'resume',
+      name: "Resume PDF Document Sync",
+      desc: "Uploads, extracts, and indexes skills, achievements, and professional timelines."
+    },
+    {
+      key: 'projects',
+      name: "Unified Projects Deduplication",
+      desc: "Aggregates and merges repository, portfolio, and manually-entered projects."
+    },
+    {
+      key: 'portfolio',
+      name: "Portfolio Health Checker",
+      desc: "Tracks HTTP status codes, SSL validation alerts, and site response times."
     }
   ];
 

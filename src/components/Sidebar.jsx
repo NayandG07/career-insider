@@ -115,24 +115,28 @@ export default function Sidebar({ activePage, setActivePage, collapsed, setColla
           </span>
         </div>
 
-        <div className={`flex items-center gap-2 ${collapsed ? 'flex-col' : 'flex-row'}`}>
-          {/* Active GitHub Connector */}
-          <motion.div 
-            whileHover={{ scale: 1.1, rotate: 5 }}
-            className="w-8 h-8 rounded-full bg-white border border-[#E5E9F0] shadow-sm flex items-center justify-center text-[#111827] cursor-pointer" 
-            title="GitHub connected"
-          >
-            <Github className="w-4 h-4" />
-          </motion.div>
-          {/* Greyed/Disabled Connectors */}
-          {['LC', 'CF', 'KC'].map((txt, idx) => (
-            <div 
-              key={idx} 
-              className="w-8 h-8 rounded-full bg-[#F3F4F6] border border-[#E5E9F0] flex items-center justify-center text-[9px] font-bold text-[#9CA3AF] cursor-not-allowed"
-              title={`${txt} not active`}
+        <div className={`flex flex-wrap gap-1.5 ${collapsed ? 'flex-col' : 'flex-row'}`}>
+          {[
+            { id: 'GH', active: true, title: 'GitHub connected' },
+            { id: 'LC', active: true, title: 'LeetCode connected' },
+            { id: 'CF', active: true, title: 'Codeforces connected' },
+            { id: 'KG', active: true, title: 'Kaggle connected' },
+            { id: 'RS', active: true, title: 'Resume PDF parsed' },
+            { id: 'PJ', active: true, title: 'Projects merged' },
+            { id: 'PF', active: true, title: 'Portfolio healthy' }
+          ].map((src, idx) => (
+            <motion.div 
+              key={idx}
+              whileHover={{ scale: 1.1 }}
+              className={`w-7 h-7 rounded-full border flex items-center justify-center text-[9px] font-black shadow-sm cursor-pointer transition-all ${
+                src.active 
+                  ? 'bg-white border-[#E5E9F0] text-[#7C3AED]' 
+                  : 'bg-[#F3F4F6] border-[#E5E9F0] text-[#9CA3AF]'
+              }`} 
+              title={src.title}
             >
-              {txt}
-            </div>
+              {src.id}
+            </motion.div>
           ))}
         </div>
       </div>

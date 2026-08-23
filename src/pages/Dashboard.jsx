@@ -27,10 +27,10 @@ export default function Dashboard({ setActivePage }) {
   // Static state data matching Dashboard.png
   const globalScore = 84;
   const stats = [
-    { label: "SKILLS ANALYZED", value: "38", change: "↑ 4 this wk", desc: "GitHub commits & LeetCode tracking active" },
+    { label: "SKILLS ANALYZED", value: "38 Mapped", change: "↑ 4 this wk", desc: "GitHub commits & LeetCode tracking active" },
     { label: "TOP-TIER MATCHES", value: "14 Companies", change: "92% Avg Match", desc: "Stripe, Netflix, Linear & Airbnb active" },
-    { label: "LEARNING HOURS", value: "24.5 hrs", change: "↑ 12%", desc: "System architecture & scaling lectures" },
-    { label: "PROFILE STRENGTH", value: "Elite V2", change: "Verified", desc: "Credentials mapped from 5 open channels" },
+    { label: "CONNECTED SOURCES", value: "7 Sources", change: "✓ 7/7 Active", desc: "Unified Developer Profile feed mapping is online" },
+    { label: "PROFILE STRENGTH", value: "Elite V2", change: "Verified", desc: "Credentials mapped from 7 open channels" },
   ];
 
   const radarData = [
@@ -135,14 +135,40 @@ export default function Dashboard({ setActivePage }) {
             <span className="absolute text-2xl font-black text-[#111827]">{globalScore}%</span>
           </div>
 
-          <div className="space-y-2">
-            <span className="text-[10px] font-bold text-[#6366F1] uppercase tracking-wider block">
-              Global Readiness Score
-            </span>
-            <h3 className="text-xl font-bold text-[#111827]">Highly Competitive</h3>
-            <p className="text-xs text-[#6B7280] font-semibold leading-relaxed">
-              You rank in the top 6% of general software engineers with similar experience. Your profile is ready for Tier-1 algorithmic and system design matching.
-            </p>
+          <div className="space-y-3">
+            <div>
+              <span className="text-[10px] font-bold text-[#6366F1] uppercase tracking-wider block">
+                Global Readiness Score
+              </span>
+              <h3 className="text-xl font-bold text-[#111827] mt-0.5">Highly Competitive</h3>
+              <p className="text-xs text-[#6B7280] font-semibold leading-relaxed mt-1">
+                You rank in the top 6% of general software engineers with similar experience. Your profile is ready for Tier-1 algorithmic and system design matching.
+              </p>
+            </div>
+
+            {/* Connected Sources Status Check List */}
+            <div className="flex flex-wrap gap-1.5 pt-3 border-t border-[#F3F4F6]">
+              {[
+                { name: 'GitHub', status: '✓' },
+                { name: 'LeetCode', status: '✓' },
+                { name: 'Codeforces', status: '✓' },
+                { name: 'Kaggle', status: '✓' },
+                { name: 'Resume', status: '✓' },
+                { name: 'Projects', status: '✓' },
+                { name: 'Portfolio', status: '● Healthy' }
+              ].map((s, idx) => (
+                <span 
+                  key={idx} 
+                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                    s.status === '✓' 
+                      ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
+                      : 'bg-indigo-50 border-indigo-100 text-indigo-700'
+                  }`}
+                >
+                  {s.name} {s.status}
+                </span>
+              ))}
+            </div>
           </div>
         </motion.div>
 
