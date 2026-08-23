@@ -114,6 +114,18 @@ export default function Settings() {
                         {isActive ? 'ACTIVE' : 'DISCONNECTED'}
                       </span>
                       
+                      {/* Connection Action Button */}
+                      <button 
+                        onClick={() => handleToggle(plat.key)}
+                        className={`px-3 py-1.5 border rounded-lg text-[10px] font-black tracking-tight cursor-pointer transition-all ${
+                          isActive 
+                            ? 'border-[#E5E9F0] text-[#6B7280] hover:bg-[#FAFBFC]' 
+                            : 'bg-[#7C3AED] border-[#7C3AED] text-white hover:bg-[#6D28D9]'
+                        }`}
+                      >
+                        {isActive ? 'Disconnect' : 'Connect Account'}
+                      </button>
+
                       {/* Toggle Switch */}
                       <button 
                         onClick={() => handleToggle(plat.key)}

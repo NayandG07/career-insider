@@ -117,13 +117,13 @@ export default function Sidebar({ activePage, setActivePage, collapsed, setColla
 
         <div className={`flex flex-wrap gap-1.5 ${collapsed ? 'flex-col' : 'flex-row'}`}>
           {[
-            { id: 'GH', active: true, title: 'GitHub connected' },
-            { id: 'LC', active: true, title: 'LeetCode connected' },
-            { id: 'CF', active: true, title: 'Codeforces connected' },
-            { id: 'KG', active: true, title: 'Kaggle connected' },
-            { id: 'RS', active: true, title: 'Resume PDF parsed' },
-            { id: 'PJ', active: true, title: 'Projects merged' },
-            { id: 'PF', active: true, title: 'Portfolio healthy' }
+            { id: 'GH', name: 'GitHub Repositories', status: 'Connected & Normalized', active: true },
+            { id: 'LC', name: 'LeetCode Activity', status: 'Connected & Mapped', active: true },
+            { id: 'CF', name: 'Codeforces Rankings', status: 'Connected (1650 Expert)', active: true },
+            { id: 'KG', name: 'Kaggle Notebooks', status: 'Connected (3 notebooks)', active: true },
+            { id: 'RS', name: 'Resume Document', status: 'Parsed & Extracted', active: true },
+            { id: 'PJ', name: 'Unified Projects', status: '12 Items Normalized', active: true },
+            { id: 'PF', name: 'Portfolio Site', status: 'Healthy (HTTP 200, 164ms)', active: true }
           ].map((src, idx) => (
             <motion.div 
               key={idx}
@@ -133,7 +133,7 @@ export default function Sidebar({ activePage, setActivePage, collapsed, setColla
                   ? 'bg-white border-[#E5E9F0] text-[#7C3AED]' 
                   : 'bg-[#F3F4F6] border-[#E5E9F0] text-[#9CA3AF]'
               }`} 
-              title={src.title}
+              title={`${src.name}: ${src.status}`}
             >
               {src.id}
             </motion.div>
