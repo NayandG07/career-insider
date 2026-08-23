@@ -1,29 +1,29 @@
 import React from 'react';
 import { 
   LayoutGrid, 
-  User,
-  Layers, 
-  Link as LinkIcon,
-  FolderGit2, 
-  Activity,
   Compass, 
+  Layers, 
+  Briefcase, 
+  FolderGit2, 
+  BookOpen, 
+  Sparkles, 
+  BarChart3, 
   Settings as SettingsIcon,
   Github,
   ChevronLeft,
-  ChevronRight,
-  Sparkles
+  ChevronRight
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function Sidebar({ activePage, setActivePage, collapsed, setCollapsed }) {
   const menuItems = [
-    { id: 'overview', name: 'Overview', icon: LayoutGrid },
-    { id: 'profile', name: 'Profile', icon: User },
-    { id: 'skills', name: 'Skills & Evidence', icon: Layers },
-    { id: 'sources', name: 'Sources', icon: LinkIcon },
+    { id: 'dashboard', name: 'Dashboard', icon: LayoutGrid },
+    { id: 'roadmap', name: 'Career Roadmap', icon: Compass },
+    { id: 'skills', name: 'Skill Intelligence', icon: Layers },
+    { id: 'companies', name: 'Company Matches', icon: Briefcase },
     { id: 'projects', name: 'Projects', icon: FolderGit2 },
-    { id: 'portfolio-health', name: 'Portfolio Health', icon: Activity },
-    { id: 'recommendations', name: 'Recommendations', icon: Compass },
+    { id: 'ai-mentor', name: 'AI Mentor', icon: Sparkles },
+    { id: 'reports', name: 'Reports', icon: BarChart3 },
     { id: 'settings', name: 'Settings', icon: SettingsIcon },
   ];
 
@@ -40,7 +40,6 @@ export default function Sidebar({ activePage, setActivePage, collapsed, setColla
             <motion.div 
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => setActivePage('overview')}
               className="w-8 h-8 rounded-lg bg-[#7C3AED] flex items-center justify-center shadow-lg shadow-purple-200 shrink-0 cursor-pointer"
             >
               <Sparkles className="w-4 h-4 text-white" />

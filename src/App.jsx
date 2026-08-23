@@ -1,41 +1,41 @@
 import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
-import Overview from './pages/Overview';
+import Dashboard from './pages/Dashboard';
+import Roadmap from './pages/Roadmap';
+import SkillIntelligence from './pages/SkillIntelligence';
+import CompanyMatches from './pages/CompanyMatches';
+import AIMentor from './pages/AIMentor';
+import Reports from './pages/Reports';
 import Profile from './pages/Profile';
-import SkillsEvidence from './pages/SkillsEvidence';
-import Sources from './pages/Sources';
-import Projects from './pages/Projects';
-import PortfolioHealth from './pages/PortfolioHealth';
-import Recommendations from './pages/Recommendations';
 import Settings from './pages/Settings';
 import { AppProvider } from './context/AppContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function MainAppContent() {
-  const [activePage, setActivePage] = useState('overview');
+  const [activePage, setActivePage] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const renderPage = () => {
     switch (activePage) {
-      case 'overview':
-        return <Overview setActivePage={setActivePage} />;
+      case 'dashboard':
+        return <Dashboard setActivePage={setActivePage} />;
+      case 'roadmap':
+        return <Roadmap />;
+      case 'skills':
+        return <SkillIntelligence />;
+      case 'companies':
+        return <CompanyMatches />;
+      case 'ai-mentor':
+        return <AIMentor />;
+      case 'reports':
+        return <Reports />;
       case 'profile':
         return <Profile />;
-      case 'skills':
-        return <SkillsEvidence />;
-      case 'sources':
-        return <Sources />;
-      case 'projects':
-        return <Projects />;
-      case 'portfolio-health':
-        return <PortfolioHealth />;
-      case 'recommendations':
-        return <Recommendations />;
       case 'settings':
         return <Settings />;
       default:
-        return <Overview setActivePage={setActivePage} />;
+        return <Dashboard setActivePage={setActivePage} />;
     }
   };
 
@@ -52,7 +52,7 @@ function MainAppContent() {
       {/* Main Container */}
       <div 
         className="flex-1 flex flex-col min-w-0 transition-all duration-300"
-        style={{ paddingLeft: sidebarCollapsed ? '80px' : '280px' }}
+        style={{ paddingLeft: sidebarCollapsed ? '80px' : '260px' }}
       >
         {/* Sticky Glass Navbar */}
         <Topbar activePage={activePage} setActivePage={setActivePage} />
