@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#F6F8FC] text-[#111827] font-sans antialiased selection:bg-purple-100 selection:text-purple-600;
+    margin: 0;
+  }
+  
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* Premium Custom Styles */
+
+/* Glassmorphism styles - following v2 specs: 15-20% max usage, blur 20px, border 1px rgba(255,255,255,0.4) */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.glass-nav {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Animated Mesh Gradient Background for Hero Card */
+.mesh-bg {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #6366F1, #7C3AED, #8B5CF6);
+}
+
+.mesh-bg::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: 
+    radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.4) 0%, transparent 50%),
+    radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.4) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(236, 72, 153, 0.3) 0%, transparent 50%);
+  filter: blur(60px);
+  z-index: 1;
+  animation: mesh-float 20s infinite alternate ease-in-out;
+}
+
+@keyframes mesh-float {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(-10%, -15%) rotate(180deg);
+  }
+  100% {
+    transform: translate(5%, 5%) rotate(360deg);
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Radar Chart Styling override for recharts */
+.recharts-polar-grid-concentric-path {
+  stroke: #E2E8F0 !important;
+}
+.recharts-polar-angle-axis-line {
+  stroke: #CBD5E1 !important;
+}
+
+/* Pulse animation for active node */
+.active-pulse {
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: .5;
+    transform: scale(1.05);
+  }
+}
