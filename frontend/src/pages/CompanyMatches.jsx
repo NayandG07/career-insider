@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useApp } from '../context/AppContext';
 import { 
   Sparkles, 
   Search, 
@@ -14,106 +15,24 @@ export default function CompanyMatches() {
   const [selectedCompId, setSelectedCompId] = useState('stripe');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const companies = [
-    {
-      id: 'stripe',
-      name: "Stripe",
-      logoChar: "S",
-      logoBg: "bg-[#635BFF]",
-      salary: "$180k - $230k • 0.1% Equity",
-      match: 94,
-      location: "San Francisco / Remote",
-      tags: ["React", "TypeScript", "System Design", "NodeJS"],
-      breakdown: [
-        {
-          factor: "Tech Stack Alignment",
-          desc: "Your mapped TypeScript & React skills are in the top 3% of their system engineering needs.",
-          status: "strong"
-        },
-        {
-          factor: "Engineering Culture",
-          desc: "High correlation with autonomy & open source contribution signals in your profile.",
-          status: "strong"
-        },
-        {
-          factor: "Algorithmic Mastery",
-          desc: "Their interviews require high-level dynamic programming. Recommended prep: 2 LeetCode challenges.",
-          status: "gap"
-        }
-      ]
-    },
-    {
-      id: 'linear',
-      name: "Linear",
-      logoChar: "L",
-      logoBg: "bg-[#121212]",
-      salary: "$190k - $240k • 0.25% Equity",
-      match: 89,
-      location: "Remote",
-      tags: ["React", "TypeScript", "Offline Sync", "NodeJS"],
-      breakdown: [
-        {
-          factor: "Offline Sync Architecture",
-          desc: "Your commits in workspace syncing match Linear's custom Client-Side sync pattern.",
-          status: "strong"
-        },
-        {
-          factor: "Design Systems",
-          desc: "Experience building tailwind-based premium designs fits their product standard perfectly.",
-          status: "strong"
-        },
-        {
-          factor: "Database Query Tuning",
-          desc: "Moderate database index caching gaps identified for sub-millisecond local reads.",
-          status: "gap"
-        }
-      ]
-    },
-    {
-      id: 'airbnb',
-      name: "Airbnb",
-      logoChar: "A",
-      logoBg: "bg-[#FF5A5F]",
-      salary: "$175k - $220k • RSU Package",
-      match: 82,
-      location: "San Francisco, CA",
-      tags: ["React", "Sass", "Server Render", "Docker"],
-      breakdown: [
-        {
-          factor: "UI Render Optimization",
-          desc: "Elite knowledge in core web vitals and React virtualization is highly valued here.",
-          status: "strong"
-        },
-        {
-          factor: "Cloud Container Pipelines",
-          desc: "Significant gap in multi-region Kubernetes deployments. Recommended: complete Cloud Orchestration roadmap.",
-          status: "gap"
-        }
-      ]
-    },
-    {
-      id: 'netflix',
-      name: "Netflix",
-      logoChar: "N",
-      logoBg: "bg-[#E50914]",
-      salary: "$300k - $450k • Cash Only",
-      match: 75,
-      location: "Los Gatos / Remote",
-      tags: ["TypeScript", "GraphQL", "Scale Infra", "Docker"],
-      breakdown: [
-        {
-          factor: "GraphQL Schema Stitching",
-          desc: "Federated API expertise aligns with their distributed UI gateway architecture.",
-          status: "strong"
-        },
-        {
-          factor: "Core Infrastructure Scaling",
-          desc: "Gaps in caching cluster setups and container load balancing. P1 Priority gap recommendation.",
-          status: "gap"
-        }
-      ]
-    }
-  ];
+  const { companies: matchedCompanies } = useApp();
+
+  const companies = matchedCompanies && matchedCompanies.length > 0 
+    ? matchedCompanies.map((c, i) => ({
+        id: c.name.toLowerCase().replace(/\s+/g, '-'),
+        name: c.name,
+        logoChar: c.name.charAt(0).toUpperCase(),
+        logoBg: ["bg-[#635BFF]", "bg-[#121212]", "bg-[#FF5A5F]", "bg-[#E50914]"][i % 4], // cycle some colors
+        salary: c.hiringInsights || "Competitive Compensation",
+        match: c.matchScore || 0,
+        location: c.tier || "Remote",
+        tags: [...(c.strong || []), ...(c.missing || [])].slice(0, 4),
+        breakdown: [
+          ...((c.strong || []).map(s => ({ factor: s, desc: "Matched based on connected profile.", status: 'strong' }))),
+          ...((c.missing || []).map(m => ({ factor: m, desc: "Identified gap in profile.", status: 'gap' })))
+        ]
+      }))
+    : [];
 
   const activeComp = companies.find(c => c.id === selectedCompId) || companies[0];
 
@@ -127,6 +46,10 @@ export default function CompanyMatches() {
     if (status === 'strong') return "bg-[#10B981]";
     return "bg-[#F59E0B]";
   };
+
+  if (!companies || companies.length === 0) {
+    return <div className="p-12 text-center text-gray-500 font-semibold">No companies matched yet. Please sync your profile or run the match engine.</div>;
+  }
 
   return (
     <div className="space-y-6 pb-12 text-left">

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useApp } from '../context/AppContext';
 import { 
   Sparkles, 
   Send, 
@@ -11,29 +12,43 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AIMentor() {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'mentor',
-      name: 'CareerOS Mentor',
-      time: '10:30 AM',
-      text: "Hi Alex! I've analyzed your recent LeetCode data on Dynamic Programming and your new 'Distributed Cache' system design document. Your overall readiness is looking very competitive."
-    },
-    {
-      id: 2,
-      sender: 'user',
-      name: 'Alex Rivera',
-      time: '10:32 AM',
-      text: "Awesome. Do I have realistic odds at getting an offer from Stripe right now? What are my critical gaps?"
-    },
-    {
-      id: 3,
-      sender: 'mentor',
-      name: 'CareerOS Mentor',
-      time: '10:33 AM',
-      text: "You have a 94% compatibility match! Your core frontend competence is top-tier. Your primary gap is in complex distributed sharding structures which Stripe evaluates heavily in their Architecture Round. Shall we customize a mock test for this?"
+  const { conversation, addMentorMessage, userData, companies, skills } = useApp();
+  
+  const [messages, setMessages] = useState([]);
+  
+  // Sync context conversation to local UI format
+  useEffect(() => {
+    if (!conversation || conversation.length === 0) {
+      setMessages([
+        {
+          id: 1,
+          sender: 'mentor',
+          name: 'CareerOS Mentor',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          text: "Hi there! I'm your AI career mentor. I can help analyze your mapped skills, recommend learning paths, or help you prep for interviews. What's on your mind today?"
+        }
+      ]);
+    } else {
+      const formatted = conversation.map((m, i) => ({
+        id: i + 2,
+        sender: m.sender,
+        name: m.sender === 'user' ? (userData?.user?.name || 'You') : 'CareerOS Mentor',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        text: m.text
+      }));
+      // add initial welcome message at front
+      setMessages([
+        {
+          id: 1,
+          sender: 'mentor',
+          name: 'CareerOS Mentor',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          text: "Hi there! I'm your AI career mentor. I can help analyze your mapped skills, recommend learning paths, or help you prep for interviews. What's on your mind today?"
+        },
+        ...formatted
+      ]);
     }
-  ]);
+  }, [conversation, userData]);
 
   const [inputVal, setInputVal] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -44,47 +59,30 @@ export default function AIMentor() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const handleSendMessage = (text) => {
+  const handleSendMessage = async (text) => {
     if (!text.trim()) return;
-    
-    // Add user message
-    const userMsg = {
-      id: Date.now(),
-      sender: 'user',
-      name: 'Alex Rivera',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      text: text
-    };
-    
-    setMessages(prev => [...prev, userMsg]);
     setInputVal('');
     
-    // Simulate mentor typing response
+    // Optimistic UI handled by AppContext adding the user message instantly
     setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-      const mentorMsg = {
-        id: Date.now() + 1,
-        sender: 'mentor',
-        name: 'CareerOS Mentor',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text: "I've generated a specific 3-question architecture mock session focused on Distributed Sharding Gaps. You can initiate it directly from your telemetry checklist."
-      };
-      setMessages(prev => [...prev, mentorMsg]);
-    }, 1500);
+    await addMentorMessage(text, null); // passing null sessionId for simplicity
+    setIsTyping(false);
   };
 
   const suggestionChips = [
-    "Run mock system architecture test",
     "Identify my secondary skill gaps",
-    "Compare compensation structures for Stripe"
+    "How can I improve my system design score?",
+    "What roles am I best suited for?"
   ];
 
+  const targetCompany = companies && companies.length > 0 ? `${companies[0].name} (${companies[0].matchScore}% Match)` : "Not determined";
+  const primaryGap = skills && skills.length > 0 ? "Check Insights" : "Connect sources first";
+
   const telemetryContext = [
-    { label: "Target Position", val: "Staff Infra Architect" },
-    { label: "Active Match Target", val: "Stripe (94% Compatibility)" },
-    { label: "Primary Skill Gap", val: "Distributed Sharding" },
-    { label: "LeetCode Prep Target", val: "Dynamic Programming" }
+    { label: "Target Position", val: userData?.targetRole || "Any Software Engineer" },
+    { label: "Active Match Target", val: targetCompany },
+    { label: "Primary Skill Gap", val: primaryGap },
+    { label: "Overall Readiness", val: `${userData?.readinessScore || 0}%` }
   ];
 
   return (

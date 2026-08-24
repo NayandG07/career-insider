@@ -1,4 +1,5 @@
 import React from 'react';
+import { useApp } from '../context/AppContext';
 import { 
   ResponsiveContainer, 
   BarChart, 
@@ -16,25 +17,34 @@ import {
 } from 'lucide-react';
 
 export default function Reports() {
+  const { userData, skills, telemetry, companies } = useApp();
+
+  const activeSkillsCount = skills ? skills.length : 0;
+  const matchesCount = companies ? companies.length : 0;
+  const globalScore = userData?.readinessScore || 0;
+
   const stats = [
-    { label: "SKILLS ANALYZED", value: "38 Mapped", change: "+12% MoM", desc: "Commits & submissions active" },
-    { label: "TOP-TIER MATCHES", value: "14 Companies", change: "92% compatibility", desc: "Stripe, Netflix active" },
-    { label: "INTERVIEWS SCHEDULED", value: "4 Secured", change: "80% success rate", desc: "Next: Stripe Mock System" },
-    { label: "PROFILE VIEWS", value: "412 Views", change: "+34% MoM", desc: "By Tier-1 recruiters" }
+    { label: "SKILLS ANALYZED", value: `${activeSkillsCount} Mapped`, change: "Active", desc: "Commits & submissions active" },
+    { label: "TOP-TIER MATCHES", value: `${matchesCount} Companies`, change: "Calculated", desc: "Based on active skills" },
+    { label: "INTERVIEWS SCHEDULED", value: "Available in Pro", change: "Locked", desc: "Unlock to schedule mock interviews" },
+    { label: "PROFILE STRENGTH", value: `${globalScore}% Readiness`, change: "Tracked", desc: "Your global competency score" }
   ];
 
+  // Derive weekly data from globalScore or default
   const weeklyGrowthData = [
-    { name: 'Week 1', score: 35 },
-    { name: 'Week 2', score: 55 },
-    { name: 'Week 3', score: 45 },
-    { name: 'Week 4', score: 70 },
-    { name: 'Week 5', score: 84 },
+    { name: 'Week 1', score: Math.max(0, globalScore - 15) },
+    { name: 'Week 2', score: Math.max(0, globalScore - 10) },
+    { name: 'Week 3', score: Math.max(0, globalScore - 8) },
+    { name: 'Week 4', score: Math.max(0, globalScore - 3) },
+    { name: 'Week 5', score: globalScore },
   ];
+
+  const connectedSources = userData?.connectedSources || {};
 
   const platforms = [
-    { name: "GitHub", progress: 70, color: "bg-[#6366F1]", desc: "Commits & Reviews" },
-    { name: "LeetCode", progress: 50, color: "bg-[#10B981]", desc: "DP & Algorithm Prep" },
-    { name: "Kaggle", progress: 20, color: "bg-[#F59E0B]", desc: "ML Competitions" }
+    { name: "GitHub", progress: connectedSources.github?.connected ? 100 : 0, color: "bg-[#6366F1]", desc: "Commits & Reviews" },
+    { name: "LeetCode", progress: connectedSources.leetcode?.connected ? 100 : 0, color: "bg-[#10B981]", desc: "DP & Algorithm Prep" },
+    { name: "Kaggle", progress: connectedSources.kaggle?.connected ? 100 : 0, color: "bg-[#F59E0B]", desc: "ML Competitions" }
   ];
 
   return (

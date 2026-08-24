@@ -24,56 +24,60 @@ import {
 import { motion } from 'framer-motion';
 
 export default function Dashboard({ setActivePage }) {
-  // Static state data matching Dashboard.png
-  const globalScore = 84;
+  const { userData, skills, telemetry } = useApp();
+
+  const globalScore = userData?.readinessScore || 0;
+  
+  const connectedCount = userData?.connectedSources 
+    ? Object.values(userData.connectedSources).filter(s => s && s.connected).length 
+    : 0;
+
   const stats = [
-    { label: "SKILLS ANALYZED", value: "38 Mapped", change: "↑ 4 this wk", desc: "GitHub commits & LeetCode tracking active" },
-    { label: "TOP-TIER MATCHES", value: "14 Companies", change: "92% Avg Match", desc: "Stripe, Netflix, Linear & Airbnb active" },
-    { label: "CONNECTED SOURCES", value: "7 Sources", change: "✓ 7/7 Active", desc: "Unified Developer Profile feed mapping is online" },
-    { label: "PROFILE STRENGTH", value: "Elite V2", change: "Verified", desc: "Credentials mapped from 7 open channels" },
+    { label: "SKILLS ANALYZED", value: `${skills ? skills.length : 0} Mapped`, change: "Active", desc: "Live tracking from connected sources" },
+    { label: "TOP-TIER MATCHES", value: "Available in Matches", change: "Dynamic", desc: "Check Company Matches tab" },
+    { label: "CONNECTED SOURCES", value: `${connectedCount} Sources`, change: `✓ ${connectedCount} Active`, desc: "Unified Developer Profile feed" },
+    { label: "PROFILE STRENGTH", value: globalScore > 80 ? "Elite V2" : (globalScore > 50 ? "Intermediate" : "Beginner"), change: "Verified", desc: "Credentials mapped" },
   ];
 
-  const radarData = [
-    { subject: 'System Design', A: 85, fullMark: 100 },
-    { subject: 'Frontend', A: 92, fullMark: 100 },
-    { subject: 'Algorithmic', A: 84, fullMark: 100 },
-    { subject: 'DevOps', A: 55, fullMark: 100 },
-  ];
+  // Map skills to radar data if available
+  const radarData = skills && skills.length > 0 
+    ? skills.map(sk => ({ subject: sk.category || sk.subject || 'Unknown', A: sk.level || sk.A || 0, fullMark: 100 })).slice(0, 6)
+    : [];
 
+  // Fallback for bar data if telemetry doesn't have it
   const barData = [
-    { name: 'Mon', score: 62 },
-    { name: 'Tue', score: 68 },
-    { name: 'Wed', score: 65 },
-    { name: 'Thu', score: 78 },
-    { name: 'Fri', score: 84 },
+    { name: 'Mon', score: Math.max(0, globalScore - 10) },
+    { name: 'Tue', score: Math.max(0, globalScore - 8) },
+    { name: 'Wed', score: Math.max(0, globalScore - 5) },
+    { name: 'Thu', score: Math.max(0, globalScore - 2) },
+    { name: 'Fri', score: globalScore },
   ];
 
-  const credentials = [
-    {
-      source: 'GitHub',
-      icon: Github,
-      color: 'bg-slate-900 text-white',
-      title: "Pushed 8 commits to 'scaling-distributed-db' project",
-      time: "2 hours ago",
-      points: "+40 Skill Pts"
-    },
-    {
-      source: 'LeetCode',
-      icon: Code,
-      color: 'bg-amber-500 text-white',
-      title: "Solved dynamic programming problem: 'Wildcard Matching' (Hard)",
-      time: "5 hours ago",
-      points: "+85 Algo Pts"
-    },
-    {
-      source: 'Kaggle',
-      icon: Database,
-      color: 'bg-sky-500 text-white',
-      title: "Submited score in 'Data-driven Recommendation Models' classification",
-      time: "Yesterday",
-      points: "+110 ML Pts"
-    }
-  ];
+  // Map telemetry events to credentials if available
+  let credentials = [];
+  if (telemetry && telemetry.events) {
+    credentials = telemetry.events.slice(0, 5).map(event => ({
+      source: event.source,
+      icon: event.source === 'GitHub' ? Github : (event.source === 'LeetCode' ? Code : Database),
+      color: event.source === 'GitHub' ? 'bg-slate-900 text-white' : (event.source === 'LeetCode' ? 'bg-amber-500 text-white' : 'bg-sky-500 text-white'),
+      title: event.description || "Activity detected",
+      time: new Date(event.timestamp).toLocaleDateString(),
+      points: "+10 Pts"
+    }));
+  }
+  
+  if (credentials.length === 0) {
+    credentials = [
+      {
+        source: 'System',
+        icon: Database,
+        color: 'bg-indigo-500 text-white',
+        title: "No recent activity found. Connect sources or sync.",
+        time: "Now",
+        points: "+0 Pts"
+      }
+    ];
+  }
 
   return (
     <div className="space-y-6 pb-12 text-left">

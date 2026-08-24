@@ -1,4 +1,5 @@
 import React from 'react';
+import { useApp } from '../context/AppContext';
 import { 
   Sparkles, 
   Download, 
@@ -12,56 +13,62 @@ import {
 } from 'lucide-react';
 
 export default function SkillIntelligence() {
-  const topCategories = [
-    { name: "Frontend", score: 92, tags: ["React", "TypeScript", "Tailwind CSS", "NextJS"], color: "text-[#6366F1]" },
-    { name: "Backend", score: 68, tags: ["NodeJS", "PostgreSQL", "System API", "GraphQL"], color: "text-[#7C3AED]" },
-    { name: "DevOps & Infra", score: 45, tags: ["Docker", "GitHub Actions", "AWS Basic", "Nginx"], color: "text-[#06B6D4]" }
-  ];
+  const { skills } = useApp();
 
-  const masteryGrid = [
-    {
-      title: "Data Structures",
-      icon: Code,
-      color: "bg-slate-900 text-white",
-      level: "Expert",
-      score: "85%",
-      footer: "Updated 2 hrs ago",
-      trend: "up"
-    },
-    {
-      title: "System Scalability",
-      icon: Layers,
-      color: "bg-indigo-600 text-white",
-      level: "Intermediate",
-      score: "64%",
-      footer: "Updated 1 day ago",
-      trend: "up"
-    },
-    {
-      title: "Predictive Modeling",
-      icon: Database,
-      color: "bg-sky-500 text-white",
-      level: "Advanced",
-      score: "78%",
-      footer: "Updated 3 days ago",
-      trend: "stable"
-    },
-    {
-      title: "Cloud Systems",
-      icon: Globe,
-      color: "bg-emerald-600 text-white",
-      level: "Beginner",
-      score: "35%",
-      footer: "Updated 1 week ago",
-      trend: "up"
-    }
-  ];
+  const topCategories = skills && skills.length > 0 
+    ? skills.slice(0, 3).map(sk => ({
+        name: sk.category || sk.subject || 'Unknown',
+        score: sk.level || sk.A || 0,
+        tags: sk.evidence ? sk.evidence.split(', ') : ['No data'],
+        color: "text-[#6366F1]"
+      }))
+    : [
+        { name: "Frontend", score: 0, tags: ["No data"], color: "text-[#6366F1]" },
+        { name: "Backend", score: 0, tags: ["No data"], color: "text-[#7C3AED]" },
+        { name: "DevOps & Infra", score: 0, tags: ["No data"], color: "text-[#06B6D4]" }
+      ];
+
+  const masteryGrid = skills && skills.length > 0
+    ? skills.slice(0, 4).map(sk => ({
+        title: sk.category || sk.subject || 'Unknown',
+        icon: Code,
+        color: "bg-slate-900 text-white",
+        level: sk.level > 80 ? "Expert" : (sk.level > 50 ? "Intermediate" : "Beginner"),
+        score: `${sk.level || sk.A || 0}%`,
+        footer: "Updated recently",
+        trend: "up"
+      }))
+    : [
+        {
+          title: "Waiting for Data",
+          icon: Code,
+          color: "bg-slate-900 text-white",
+          level: "Unknown",
+          score: "0%",
+          footer: "Connect sources to populate",
+          trend: "stable"
+        }
+      ];
 
   const gapAnalysis = [
     { name: "System Cache Scaling", delta: "High Delta (35%)", deltaColor: "text-red-500", priority: "P1 PRIORITY", priorityBg: "bg-red-50 text-red-600" },
     { name: "Terraform HCL", delta: "Moderate Delta (20%)", deltaColor: "text-amber-600", priority: "P2 PRIORITY", priorityBg: "bg-amber-50 text-amber-600" },
     { name: "Kubernetes Secrets", delta: "Low Delta (10%)", deltaColor: "text-amber-500", priority: "P3 PRIORITY", priorityBg: "bg-amber-50 text-amber-500" }
-  ];
+  ]; // AI backend currently doesn't produce detailed gap format like this by default unless mapped, so keeping placeholder or mapping from skills.gapAnalysis if present.
+  
+  if (skills && skills.gapAnalysis) {
+    // If backend provides explicit gap array
+    gapAnalysis.length = 0;
+    skills.gapAnalysis.forEach(gap => {
+      gapAnalysis.push({
+         name: gap.name,
+         delta: gap.delta,
+         deltaColor: "text-amber-600",
+         priority: "P2 PRIORITY",
+         priorityBg: "bg-amber-50 text-amber-600"
+      });
+    });
+  }
 
   const trendingSkills = [
     { name: "Rust WebAssembly", demand: "+120% YoY demand" },

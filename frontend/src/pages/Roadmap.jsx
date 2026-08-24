@@ -38,324 +38,11 @@ export default function Roadmap() {
     skills, 
     setSkills,
     companies,
+    roadmap: consolidatedPath,
+    fetchRoadmap,
     completeRoadmapItem
   } = useApp();
 
-  // 1. All six roles configuration datasets requested by the user
-  const rolesConfig = useMemo(() => ({
-    "Senior Backend Engineer": {
-      targetScore: 85,
-      timeframe: "2 months",
-      nextAction: "Turn left onto Containerization (Docker). Master docker-compose files.",
-      milestones: [
-        {
-          id: "m-sbe-1",
-          title: "APIs & Protocols",
-          desc: "REST, GraphQL, gRPC basics, rate-limiting, and schema validations.",
-          tags: ["REST", "GraphQL", "gRPC", "WebSockets"],
-          status: "completed",
-          progress: 100,
-          subtasks: [
-            { id: "s-sbe-1-1", text: "Design REST APIs with correct status codes", completed: true },
-            { id: "s-sbe-1-2", text: "Create GraphQL schemas & query resolvers", completed: true },
-            { id: "s-sbe-1-3", text: "Establish high-speed duplex channels via gRPC/WebSockets", completed: true }
-          ]
-        },
-        {
-          id: "m-sbe-2",
-          title: "SQL & Databases",
-          desc: "PostgreSQL, Indexing optimization, ACID transactions, query tuning.",
-          tags: ["PostgreSQL", "SQL Tuning", "Indexing"],
-          status: "completed",
-          progress: 100,
-          subtasks: [
-            { id: "s-sbe-2-1", text: "Understand indexing B-Tree vs Hash patterns", completed: true },
-            { id: "s-sbe-2-2", text: "Write complex subqueries and join optimizations", completed: true },
-            { id: "s-sbe-2-3", text: "Perform transaction locking and rollback flows", completed: true }
-          ]
-        },
-        {
-          id: "m-sbe-3",
-          title: "Containerization (Docker)",
-          desc: "Understand image building, containers, multi-stage builds, and deployment automation.",
-          tags: ["Docker", "Docker Compose", "Multi-stage"],
-          status: "in-progress",
-          progress: 33,
-          subtasks: [
-            { id: "s-sbe-3-1", text: "Write an optimized multi-stage Dockerfile for a Node.js API", completed: true },
-            { id: "s-sbe-3-2", text: "Orchestrate multi-container systems (db, cache, backend) with Docker Compose", completed: false },
-            { id: "s-sbe-3-3", text: "Configure volume mounts and bridge network profiles", completed: false }
-          ]
-        },
-        {
-          id: "m-sbe-4",
-          title: "Caching (Redis)",
-          desc: "Implement high-performance read-aside, write-through caching, and pub/sub patterns.",
-          tags: ["Redis", "Caching Models", "Key Evictions"],
-          status: "locked",
-          progress: 0,
-          subtasks: [
-            { id: "s-sbe-4-1", text: "Configure Redis caching layer in Express/Spring app", completed: false },
-            { id: "s-sbe-4-2", text: "Design a rate-limiting middleware utilizing Redis keys", completed: false },
-            { id: "s-sbe-4-3", text: "Configure LRU/LFU cache eviction criteria", completed: false }
-          ]
-        }
-      ],
-      skills: [
-        { subject: "Backend", target: 90 },
-        { subject: "DSA", target: 85 },
-        { subject: "DevOps", target: 70 },
-        { subject: "System Design", target: 70 }
-      ]
-    },
-    "DevOps": {
-      targetScore: 80,
-      timeframe: "2 months",
-      nextAction: "Accelerate onto Containerization (Docker). Write multi-stage build rules.",
-      milestones: [
-        {
-          id: "m-dev-1",
-          title: "Linux & Shell Automation",
-          desc: "Master terminal commands, Bash scripting, process scheduling, and SSH management.",
-          tags: ["Linux", "Bash", "SSH", "Cron"],
-          status: "completed",
-          progress: 100,
-          subtasks: [
-            { id: "s-dev-1-1", text: "Configure secure SSH keys and port forwarding configurations", completed: true },
-            { id: "s-dev-1-2", text: "Write automation scripts with conditional loops to parse server logs", completed: true }
-          ]
-        },
-        {
-          id: "m-dev-2",
-          title: "Containerization (Docker)",
-          desc: "Understand image building, Docker Compose, network configs, and persistent volumes.",
-          tags: ["Docker", "Compose", "Networking"],
-          status: "in-progress",
-          progress: 50,
-          subtasks: [
-            { id: "s-dev-2-1", text: "Configure multi-container environments in Compose", completed: true },
-            { id: "s-dev-2-2", text: "Setup bridge network channels and secure volume mounts", completed: false }
-          ]
-        },
-        {
-          id: "m-dev-3",
-          title: "CI/CD & Pipeline Automation",
-          desc: "Build test and deploy pipelines with GitHub Actions, Jenkins, and artifact registries.",
-          tags: ["GitHub Actions", "CI/CD", "Docker Registry"],
-          status: "locked",
-          progress: 0,
-          subtasks: [
-            { id: "s-dev-3-1", text: "Create GitHub actions to trigger test suite on PR integration", completed: false },
-            { id: "s-dev-3-2", text: "Configure automated image push to secure cloud registries", completed: false }
-          ]
-        }
-      ],
-      skills: [
-        { subject: "DevOps", target: 85 },
-        { subject: "Cloud", target: 75 },
-        { subject: "System Design", target: 60 },
-        { subject: "Backend", target: 50 }
-      ]
-    },
-    "Cloud Architect": {
-      targetScore: 90,
-      timeframe: "4 months",
-      nextAction: "Turn right onto AWS Cloud Infrastructure. Design VPC subnet topologies.",
-      milestones: [
-        {
-          id: "m-cla-1",
-          title: "Cloud Infrastructure Fundamentals",
-          desc: "Understand cloud core models, virtualization, global storage options, and CDN architectures.",
-          tags: ["AWS/Azure", "CDN", "Storage Tiers"],
-          status: "completed",
-          progress: 100,
-          subtasks: [
-            { id: "s-cla-1-1", text: "Map cloud compute clusters to region zones", completed: true },
-            { id: "s-cla-1-2", text: "Establish global edge distributions using CloudFront rules", completed: true }
-          ]
-        },
-        {
-          id: "m-cla-2",
-          title: "Infrastructure as Code (Terraform)",
-          desc: "Manage infrastructure config sheets, modules, state locks, and workspace configurations.",
-          tags: ["Terraform", "HCL Modules", "State Lock"],
-          status: "in-progress",
-          progress: 0,
-          subtasks: [
-            { id: "s-cla-2-1", text: "Write Terraform scripts to bootstrap VPC networks dynamically", completed: false },
-            { id: "s-cla-2-2", text: "Configure remote state storage locks using DynamoDB tables", completed: false }
-          ]
-        },
-        {
-          id: "m-cla-3",
-          title: "Resilient Network Architectures",
-          desc: "VPC subnets, DNS route configurations, global load balancers, and cross-region failovers.",
-          tags: ["VPC Design", "Load Balancing", "Multi-region DNS"],
-          status: "locked",
-          progress: 0,
-          subtasks: [
-            { id: "s-cla-3-1", text: "Configure public/private subnets with secure NAT gateways", completed: false },
-            { id: "s-cla-3-2", text: "Set DNS route policies for failovers under server cuts", completed: false }
-          ]
-        }
-      ],
-      skills: [
-        { subject: "Cloud", target: 90 },
-        { subject: "DevOps", target: 80 },
-        { subject: "System Design", target: 85 },
-        { subject: "Backend", target: 70 }
-      ]
-    },
-    "Staff Fullstack Engineer": {
-      targetScore: 92,
-      timeframe: "3 months",
-      nextAction: "Accelerate onto Frontend Architecture. Optimize hydration cycles.",
-      milestones: [
-        {
-          id: "m-sfe-1",
-          title: "Advanced Frontend Frameworks",
-          desc: "Optimize SSR hydration states, design layout frameworks, and state caching systems.",
-          tags: ["NextJS/Vite", "SSR/ISR", "React Server Components"],
-          status: "completed",
-          progress: 100,
-          subtasks: [
-            { id: "s-sfe-1-1", text: "Tune chunk bundling sizes inside builder files", completed: true },
-            { id: "s-sfe-1-2", text: "Establish dynamic component hydrate rules", completed: true }
-          ]
-        },
-        {
-          id: "m-sfe-2",
-          title: "Fullstack Monorepos & Tools",
-          desc: "Orchestrate clean build pipelines, yarn workspaces, and shared packages in Turborepos.",
-          tags: ["Turborepo", "Yarn workspaces", "ESLint Configs"],
-          status: "in-progress",
-          progress: 0,
-          subtasks: [
-            { id: "s-sfe-2-1", text: "Create unified monorepo workspace for frontends & APIs", completed: false },
-            { id: "s-sfe-2-2", text: "Configure dependency pipeline rules inside turbo.json configs", completed: false }
-          ]
-        },
-        {
-          id: "m-sfe-3",
-          title: "Edge Handlers & BFF Pattern",
-          desc: "Deploy backend-for-frontend layer servers, Edge routing, serverless compute caches.",
-          tags: ["BFF Pattern", "Edge Workers", "Serverless API"],
-          status: "locked",
-          progress: 0,
-          subtasks: [
-            { id: "s-sfe-3-1", text: "Deploy API endpoints onto global Edge edge-worker maps", completed: false },
-            { id: "s-sfe-3-2", text: "Design aggregate proxy API responses targeting mobile client layout limits", completed: false }
-          ]
-        }
-      ],
-      skills: [
-        { subject: "Frontend", target: 95 },
-        { subject: "Backend", target: 85 },
-        { subject: "System Design", target: 80 },
-        { subject: "DevOps", target: 65 }
-      ]
-    },
-    "Distributed Systems & Cloud Engineer": {
-      targetScore: 95,
-      timeframe: "4.5 months",
-      nextAction: "Plot path onto Consensus Protocols. Implement leader election simulation.",
-      milestones: [
-        {
-          id: "m-dsce-1",
-          title: "Distributed Caching & Streams",
-          desc: "Configure Redis sentinel failover routing, Kafka partitioned groups, and scaling profiles.",
-          tags: ["Redis Sentinel", "Kafka partition", "Eviction policies"],
-          status: "completed",
-          progress: 100,
-          subtasks: [
-            { id: "s-dsce-1-1", text: "Create Sentinel instances to trigger leader vote loops", completed: true },
-            { id: "s-dsce-1-2", text: "Implement custom partition hashing keys for stream logs", completed: true }
-          ]
-        },
-        {
-          id: "m-dsce-2",
-          title: "Consensus Protocols & Raft",
-          desc: "Understand Paxos and Raft systems, heartbeat frequencies, log indices, and replication states.",
-          tags: ["Raft consensus", "Paxos state", "Heartbeat checks"],
-          status: "in-progress",
-          progress: 0,
-          subtasks: [
-            { id: "s-dsce-2-1", text: "Write custom network node cluster mapping structures", completed: false },
-            { id: "s-dsce-2-2", text: "Simulate network partitions to test leader recovery times", completed: false }
-          ]
-        },
-        {
-          id: "m-dsce-3",
-          title: "Distributed Database Engines",
-          desc: "Write active-active global clustering protocols, Cassandra partition keys, and replication tables.",
-          tags: ["Cassandra/Dynamo", "Global Tables", "Active-active"],
-          status: "locked",
-          progress: 0,
-          subtasks: [
-            { id: "s-dsce-3-1", text: "Set write consistency parameters across cloud datacenters", completed: false },
-            { id: "s-dsce-3-2", text: "Design client partition keys to avoid database hotspot writes", completed: false }
-          ]
-        }
-      ],
-      skills: [
-        { subject: "System Design", target: 95 },
-        { subject: "Cloud", target: 85 },
-        { subject: "DevOps", target: 80 },
-        { subject: "Backend", target: 80 }
-      ]
-    },
-    "AI/ML Platform Engineer": {
-      targetScore: 95,
-      timeframe: "5.5 months",
-      nextAction: "Turn right onto GPU Orchestration. Setup Triton dynamic batch rules.",
-      milestones: [
-        {
-          id: "m-aiml-1",
-          title: "Data Pipelines & ETL Scheduler",
-          desc: "Configure Apache Spark jobs, Apache Airflow scheduler rules, and parquet file structures.",
-          tags: ["Spark", "Airflow DAGs", "ETL"],
-          status: "completed",
-          progress: 100,
-          subtasks: [
-            { id: "s-aiml-1-1", text: "Design partition tables on S3 using timestamps", completed: true },
-            { id: "s-aiml-1-2", text: "Deploy Airflow DAG schedule maps that verify job outputs", completed: true }
-          ]
-        },
-        {
-          id: "m-aiml-2",
-          title: "GPU Orchestration & Serving",
-          desc: "Setup model hosting on Triton servers, dynamic batch policies, and cuda compute maps.",
-          tags: ["Triton Server", "GPU Scheduling", "CUDA limits"],
-          status: "in-progress",
-          progress: 33,
-          subtasks: [
-            { id: "s-aiml-2-1", text: "Deploy model binaries onto Triton hosting mounts", completed: true },
-            { id: "s-aiml-2-2", text: "Optimize dynamic batching properties to throttle latency", completed: false }
-          ]
-        },
-        {
-          id: "m-aiml-3",
-          title: "Distributed Model Training",
-          desc: "Configure Ray nodes, PyTorch distributed data parallel rules, and cluster network interfaces.",
-          tags: ["Ray Cluster", "PyTorch DDP", "Distributed Training"],
-          status: "locked",
-          progress: 0,
-          subtasks: [
-            { id: "s-aiml-3-1", text: "Set Ray node pools that auto-scale based on worker queue levels", completed: false },
-            { id: "s-aiml-3-2", text: "Deploy multi-node PyTorch training scripts with unified locks", completed: false }
-          ]
-        }
-      ],
-      skills: [
-        { subject: "AI/ML", target: 90 },
-        { subject: "Data Eng", target: 85 },
-        { subject: "Cloud", target: 80 },
-        { subject: "System Design", target: 80 }
-      ]
-    }
-  }), []);
-
-  // 2. Active filters selected by the user (supporting multi-select)
   const [selectedRoles, setSelectedRoles] = useState(["Senior Backend Engineer"]);
   const [activeTab, setActiveTab] = useState("timeline"); // "timeline" or "skills"
   const [selectedMilestone, setSelectedMilestone] = useState(null);
@@ -368,22 +55,23 @@ export default function Roadmap() {
   const [detourApplied, setDetourApplied] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
+  // Fetch roadmap from backend when selected roles change
+  useEffect(() => {
+    if (selectedRoles.length > 0) {
+      setIsRerouting(true);
+      fetchRoadmap(selectedRoles).finally(() => setIsRerouting(false));
+    }
+  }, [selectedRoles]);
+
   // Toggle roles multi-selection filter
   const handleToggleRoleFilter = (roleName) => {
     setSelectedRoles(prev => {
-      let updated;
       if (prev.includes(roleName)) {
-        updated = prev.filter(r => r !== roleName);
+        return prev.filter(r => r !== roleName);
       } else {
-        updated = [...prev, roleName];
+        return [...prev, roleName];
       }
-      return updated;
     });
-
-    setIsRerouting(true);
-    setTimeout(() => {
-      setIsRerouting(false);
-    }, 400);
   };
 
   // Toast trigger
@@ -393,89 +81,6 @@ export default function Roadmap() {
       setToastMessage(null);
     }, 4500);
   };
-
-  // Generate dynamic, consolidated roadmap based on selected filters
-  const consolidatedPath = useMemo(() => {
-    if (selectedRoles.length === 0) return null;
-
-    // 1. Consolidate destination parameters
-    const targetScore = Math.max(...selectedRoles.map(r => rolesConfig[r]?.targetScore || 85));
-    
-    // Create timeframe label
-    const timeframes = selectedRoles.map(r => {
-      const num = parseFloat(rolesConfig[r]?.timeframe.split(' ')[0]);
-      return isNaN(num) ? 2 : num;
-    });
-    const maxTime = Math.max(...timeframes);
-    const timeframe = `${maxTime} - ${maxTime + 1} months`;
-
-    // 2. Combine milestones (avoiding name duplication)
-    let combinedMilestones = [];
-    const titlesSeen = new Set();
-
-    selectedRoles.forEach(roleKey => {
-      const config = rolesConfig[roleKey];
-      if (!config) return;
-
-      config.milestones.forEach(m => {
-        if (!titlesSeen.has(m.title)) {
-          titlesSeen.add(m.title);
-          combinedMilestones.push({ ...m });
-        }
-      });
-    });
-
-    // Sort milestones: completed first, then in-progress, then locked
-    combinedMilestones.sort((a, b) => {
-      const score = { 'completed': 3, 'in-progress': 2, 'locked': 1 };
-      return score[b.status] - score[a.status];
-    });
-
-    // 3. Consolidated skill targets (takes the maximum target level for each skill)
-    const combinedSkillMap = {};
-    selectedRoles.forEach(roleKey => {
-      const config = rolesConfig[roleKey];
-      if (!config) return;
-
-      config.skills.forEach(sk => {
-        if (!combinedSkillMap[sk.subject] || combinedSkillMap[sk.subject] < sk.target) {
-          combinedSkillMap[sk.subject] = sk.target;
-        }
-      });
-    });
-
-    const consolidatedSkills = Object.keys(combinedSkillMap).map(subjectName => {
-      // Find user's current score in context
-      const globalSkill = skills.find(s => s.subject === subjectName);
-      const currentLevel = globalSkill ? globalSkill.level : 40;
-      return {
-        subject: subjectName,
-        target: combinedSkillMap[subjectName],
-        current: currentLevel
-      };
-    });
-
-    // Calculate aggregated readiness score based on how current skills align with target expectations
-    const totalTarget = consolidatedSkills.reduce((sum, s) => sum + s.target, 0);
-    const totalCurrent = consolidatedSkills.reduce((sum, s) => sum + Math.min(s.current, s.target), 0);
-    const calculatedScore = totalTarget > 0 ? Math.round((totalCurrent / totalTarget) * targetScore) : 70;
-    const finalReadiness = Math.min(calculatedScore + (detourApplied ? 4 : 0), 100);
-
-    // Dynamic directions turns based on remaining tasks
-    const activeNext = combinedMilestones.find(m => m.status === 'in-progress');
-    const nextAction = activeNext 
-      ? `Plotting track to ${activeNext.title}. Work on checklist: ${activeNext.subtasks.find(s => !s.completed)?.text || 'Next modules'}.`
-      : "Milestone requirements complete! Optimize cloud and DevOps settings for maximum matching priority.";
-
-    return {
-      targetScore,
-      timeframe,
-      nextAction,
-      milestones: combinedMilestones,
-      skills: consolidatedSkills,
-      readiness: finalReadiness
-    };
-  }, [selectedRoles, rolesConfig, skills, detourApplied]);
 
   // Sync consolidation outputs with global AppContext variables
   useEffect(() => {
@@ -755,7 +360,7 @@ export default function Roadmap() {
       </div>
 
       {/* RENDER DYNAMIC PATH CONTENT */}
-      {selectedRoles.length === 0 ? (
+      {selectedRoles.length === 0 || !consolidatedPath ? (
         /* Empty State Prompting User to Select Filters */
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
@@ -768,7 +373,9 @@ export default function Roadmap() {
           <div className="max-w-md mx-auto space-y-2">
             <h3 className="text-base font-extrabold text-[#111827]">Satellite GPS Standby</h3>
             <p className="text-xs text-[#6B7280] font-semibold leading-relaxed">
-              No target roles selected. Please check one or more boxes in the target filters dashboard above to plot your consolidated developer trajectory.
+              {selectedRoles.length === 0 
+                ? "No target roles selected. Please check one or more boxes in the target filters dashboard above to plot your consolidated developer trajectory."
+                : "Calculating route via AI backend... Please wait."}
             </p>
           </div>
         </motion.div>
