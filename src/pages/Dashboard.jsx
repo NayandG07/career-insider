@@ -81,7 +81,7 @@ export default function Dashboard({ setActivePage }) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-bold text-[#111827] tracking-tight leading-tight">
-            Command Center
+            Dashboard
           </h1>
           <p className="text-sm text-[#4B5563] mt-1 font-semibold">
             CareerOS AI engine is actively mapping your developer credentials.

@@ -22,3 +22,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files
+.env
+backend/.env
+ai_service/.env
+
+# Backend uploads
+backend/uploads/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+ai_service/.venv/
+ai_service/venv/

@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pymongo
+motor
+python-dotenv
+google-generativeai
+openai
+huggingface-hub
+pydantic
+cryptography
+httpx
