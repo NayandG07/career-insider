@@ -4,6 +4,7 @@ pymongo
 motor
 python-dotenv
 google-generativeai
+google-genai
 openai
 huggingface-hub
 pydantic

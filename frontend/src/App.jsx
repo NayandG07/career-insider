@@ -9,8 +9,11 @@ import AIMentor from './pages/AIMentor';
 import Reports from './pages/Reports';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
-import { AppProvider } from './context/AppContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AppProvider, useApp } from './context/AppContext';
+import Landing from './pages/Landing';
+import Login from './pages/Login';
+import Admin from './pages/Admin';
 
 function MainAppContent() {
   const [activePage, setActivePage] = useState('dashboard');
@@ -34,6 +37,8 @@ function MainAppContent() {
         return <Profile />;
       case 'settings':
         return <Settings />;
+      case 'admin':
+        return <Admin />;
       default:
         return <Dashboard setActivePage={setActivePage} />;
     }
@@ -76,10 +81,34 @@ function MainAppContent() {
   );
 }
 
+function AppRouter() {
+  const { isAuthenticated, isLoading } = useApp();
+  const [authView, setAuthView] = useState('landing'); // 'landing', 'login', 'signup'
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F6F8FC]">
+        <div className="w-10 h-10 border-4 border-[#7C3AED] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <MainAppContent />;
+  }
+
+  // Unauthenticated routing
+  if (authView === 'login' || authView === 'signup') {
+    return <Login view={authView} setAuthView={setAuthView} />;
+  }
+
+  return <Landing setAuthView={setAuthView} />;
+}
+
 export default function App() {
   return (
     <AppProvider>
-      <MainAppContent />
+      <AppRouter />
     </AppProvider>
   );
 }

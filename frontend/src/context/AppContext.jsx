@@ -54,6 +54,13 @@ export const AppProvider = ({ children }) => {
     setIsAuthenticated(true);
   };
 
+  const register = async (name, email, password) => {
+    await authService.register(name, email, password);
+    // After register, automatically login
+    await authService.login(email, password);
+    setIsAuthenticated(true);
+  };
+
   const logout = async () => {
     await authService.logout();
     setIsAuthenticated(false);
@@ -106,6 +113,7 @@ export const AppProvider = ({ children }) => {
     <AppContext.Provider value={{
       isAuthenticated,
       login,
+      register,
       logout,
       isLoading,
       userData,

@@ -1,7 +1,8 @@
 import time
 import logging
 from typing import Dict, Any, List, Optional
-import google.generativeai as genai
+# pyrefly: ignore [missing-import]
+import google.genai as genai
 from openai import AsyncOpenAI
 from huggingface_hub import AsyncInferenceClient
 from pydantic import BaseModel

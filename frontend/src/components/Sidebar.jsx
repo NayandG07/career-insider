@@ -11,7 +11,8 @@ import {
   Settings as SettingsIcon,
   Github,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Shield
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -25,6 +26,7 @@ export default function Sidebar({ activePage, setActivePage, collapsed, setColla
     { id: 'ai-mentor', name: 'AI Mentor', icon: Sparkles },
     { id: 'reports', name: 'Reports', icon: BarChart3 },
     { id: 'settings', name: 'Settings', icon: SettingsIcon },
+    { id: 'admin', name: 'Admin', icon: Shield },
   ];
 
   return (

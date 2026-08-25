@@ -74,7 +74,6 @@ const userSchema = new mongoose.Schema(
 );
 
 // Indexes
-userSchema.index({ email: 1 });
 userSchema.index({ 'auth.github.id': 1 });
 userSchema.index({ 'auth.google.id': 1 });
 
