@@ -37,3 +37,14 @@ __pycache__/
 *$py.class
 ai_service/.venv/
 ai_service/venv/
+
+# Scripts and Plans
+*.bat
+*.cmd
+*.sh
+plan.md
+TASK_LIST.md
+IMPLEMENTATION_PLAN.md
+backend/test_*.js
+AGENTS.md
+.vscode

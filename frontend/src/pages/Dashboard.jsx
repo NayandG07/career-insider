@@ -1,339 +1,754 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  ResponsiveContainer, 
-  RadarChart, 
-  PolarGrid, 
-  PolarAngleAxis, 
-  Radar,
-  BarChart,
-  Bar,
-  XAxis,
-  Tooltip as ChartTooltip
-} from 'recharts';
+import { useToast } from '../context/ToastContext';
+import { telemetryService } from '../services/telemetryService';
+import { projectService } from '../services/projectService';
+import { codeforcesService } from '../services/codeforcesService';
+import { leetcodeService } from '../services/leetcodeService';
+import { kaggleService } from '../services/kaggleService';
+import { githubService } from '../services/githubService';
+import LeetCodeHeatmap from '../components/LeetCodeHeatmap';
 import { 
   Sparkles, 
-  Download, 
-  CheckCircle2, 
   Github, 
-  Code,
+  Code, 
   Database,
+  Award,
+  Terminal,
+  FileText,
+  ExternalLink,
+  Layers,
+  Activity,
+  Zap,
+  Check,
+  XCircle,
+  RefreshCw,
+  FolderGit2,
+  Globe,
+  Clock,
   ArrowUpRight,
-  TrendingUp
+  TrendingUp,
+  Star,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+
+function formatRelativeTime(dateInput) {
+  if (!dateInput) return 'Never synced';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return 'Never synced';
+  const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diffSec < 60) return 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}h ago`;
+  const diffDays = Math.floor(diffHour / 24);
+  return `${diffDays}d ago`;
+}
+
+function formatCompactNumber(num) {
+  if (num === null || num === undefined) return '0';
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+  return num.toString();
+}
 
 export default function Dashboard({ setActivePage }) {
-  const { userData, skills, telemetry } = useApp();
+  const { userData, refreshUser, telemetry } = useApp();
+  const { showToast } = useToast();
 
-  const globalScore = userData?.readinessScore || 0;
-  
-  const connectedCount = userData?.connectedSources 
-    ? Object.values(userData.connectedSources).filter(s => s && s.connected).length 
-    : 0;
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [cfData, setCfData] = useState(null);
+  const [lcData, setLcData] = useState(null);
+  const [kgData, setKgData] = useState(null);
+  const [ghData, setGhData] = useState(null);
 
-  const stats = [
-    { label: "SKILLS ANALYZED", value: `${skills ? skills.length : 0} Mapped`, change: "Active", desc: "Live tracking from connected sources" },
-    { label: "TOP-TIER MATCHES", value: "Available in Matches", change: "Dynamic", desc: "Check Company Matches tab" },
-    { label: "CONNECTED SOURCES", value: `${connectedCount} Sources`, change: `✓ ${connectedCount} Active`, desc: "Unified Developer Profile feed" },
-    { label: "PROFILE STRENGTH", value: globalScore > 80 ? "Elite V2" : (globalScore > 50 ? "Intermediate" : "Beginner"), change: "Verified", desc: "Credentials mapped" },
-  ];
+  // Scalable Languages View More State
+  const [showAllLanguages, setShowAllLanguages] = useState(false);
 
-  // Map skills to radar data if available
-  const radarData = skills && skills.length > 0 
-    ? skills.map(sk => ({ subject: sk.category || sk.subject || 'Unknown', A: sk.level || sk.A || 0, fullMark: 100 })).slice(0, 6)
-    : [];
+  // Initial Load
+  useEffect(() => {
+    projectService.getAll()
+      .then(res => { if (Array.isArray(res)) setProjects(res); })
+      .catch(() => {});
 
-  // Fallback for bar data if telemetry doesn't have it
-  const barData = [
-    { name: 'Mon', score: Math.max(0, globalScore - 10) },
-    { name: 'Tue', score: Math.max(0, globalScore - 8) },
-    { name: 'Wed', score: Math.max(0, globalScore - 5) },
-    { name: 'Thu', score: Math.max(0, globalScore - 2) },
-    { name: 'Fri', score: globalScore },
-  ];
+    if (userData?.connectedSources?.codeforces) {
+      codeforcesService.getProfile()
+        .then(res => { if (res?.connected && res.data) setCfData(res.data); })
+        .catch(() => {});
+    }
 
-  // Map telemetry events to credentials if available
-  let credentials = [];
-  if (telemetry && telemetry.events) {
-    credentials = telemetry.events.slice(0, 5).map(event => ({
-      source: event.source,
-      icon: event.source === 'GitHub' ? Github : (event.source === 'LeetCode' ? Code : Database),
-      color: event.source === 'GitHub' ? 'bg-slate-900 text-white' : (event.source === 'LeetCode' ? 'bg-amber-500 text-white' : 'bg-sky-500 text-white'),
-      title: event.description || "Activity detected",
-      time: new Date(event.timestamp).toLocaleDateString(),
-      points: "+10 Pts"
-    }));
-  }
-  
-  if (credentials.length === 0) {
-    credentials = [
-      {
-        source: 'System',
-        icon: Database,
-        color: 'bg-indigo-500 text-white',
-        title: "No recent activity found. Connect sources or sync.",
-        time: "Now",
-        points: "+0 Pts"
+    if (userData?.connectedSources?.leetcode) {
+      leetcodeService.getProfile()
+        .then(res => { if (res?.connected && res.data) setLcData(res.data); })
+        .catch(() => {});
+    }
+
+    const kgUser = userData?.connectedSources?.kaggle?.username || (typeof userData?.connectedSources?.kaggle === 'string' ? userData.connectedSources.kaggle : '');
+    if (kgUser) {
+      kaggleService.getProfile()
+        .then(res => { if (res?.connected && res.data) setKgData(res.data); })
+        .catch(() => {});
+    }
+
+    const ghUser = userData?.connectedSources?.github || userData?.auth?.github?.username;
+    if (ghUser) {
+      if (telemetry?.sources?.github?.data) {
+        setGhData(telemetry.sources.github.data);
       }
-    ];
-  }
+      githubService.getProfile?.()
+        .then(res => { if (res?.data) setGhData(res.data); })
+        .catch(() => {});
+    }
+  }, [userData, telemetry]);
+
+  // Universal Sync All Sources
+  const handleUniversalSync = async () => {
+    setIsSyncing(true);
+    try {
+      await telemetryService.triggerSync();
+      await refreshUser?.();
+      
+      // Refresh local states
+      if (userData?.connectedSources?.leetcode) {
+        leetcodeService.getProfile().then(r => r.data && setLcData(r.data)).catch(() => {});
+      }
+      if (userData?.connectedSources?.codeforces) {
+        codeforcesService.getProfile().then(r => r.data && setCfData(r.data)).catch(() => {});
+      }
+      if (userData?.connectedSources?.kaggle) {
+        kaggleService.getProfile().then(r => r.data && setKgData(r.data)).catch(() => {});
+      }
+
+      showToast?.('All connected platforms synchronized successfully!', 'success');
+    } catch (err) {
+      console.error('Universal sync error:', err);
+      showToast?.('Universal sync completed with partial data.', 'info');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Dynamic Sources State
+  const ghHandle = userData?.connectedSources?.github || userData?.auth?.github?.username || '';
+  const lcHandle = userData?.connectedSources?.leetcode || '';
+  const cfHandle = userData?.connectedSources?.codeforces || '';
+  const kgHandle = typeof userData?.connectedSources?.kaggle === 'object'
+    ? userData?.connectedSources?.kaggle?.username
+    : (userData?.connectedSources?.kaggle || '');
+
+  const sourcesList = [
+    { key: 'github', name: 'GitHub', connected: !!ghHandle, handle: ghHandle, icon: Github, lastSynced: telemetry?.sources?.github?.fetchedAt || userData?.lastSyncedAt },
+    { key: 'leetcode', name: 'LeetCode', connected: !!lcHandle, handle: lcHandle, icon: Code, lastSynced: telemetry?.sources?.leetcode?.fetchedAt || userData?.lastSyncedAt },
+    { key: 'codeforces', name: 'Codeforces', connected: !!cfHandle, handle: cfHandle, icon: Award, lastSynced: telemetry?.sources?.codeforces?.fetchedAt || userData?.lastSyncedAt },
+    { key: 'kaggle', name: 'Kaggle', connected: !!kgHandle, handle: kgHandle, icon: Terminal, lastSynced: telemetry?.sources?.kaggle?.fetchedAt || userData?.lastSyncedAt },
+  ];
+
+  const activeSourcesCount = sourcesList.filter(s => s.connected).length;
+
+  // Scalable Language Proportions
+  const languageStats = lcData?.languageStats || [];
+  const maxLanguageCount = useMemo(() => {
+    return languageStats.reduce((max, l) => Math.max(max, l.problemsSolved || 0), 1);
+  }, [languageStats]);
+
+  const displayedLanguages = showAllLanguages ? languageStats : languageStats.slice(0, 5);
+
+  // Cross-Platform Unified Recent Activity Stream
+  const crossPlatformActivity = useMemo(() => {
+    const events = [];
+
+    // LeetCode recent ACs
+    if (lcData?.recentSubmissions?.length > 0) {
+      lcData.recentSubmissions.slice(0, 3).forEach(sub => {
+        events.push({
+          source: 'LeetCode',
+          sourceColor: 'text-amber-600 bg-amber-50 border-amber-200',
+          title: `Solved ${sub.title}`,
+          url: `https://leetcode.com/problems/${sub.slug}/`,
+          time: sub.timestamp ? new Date(sub.timestamp * 1000) : new Date(),
+        });
+      });
+    }
+
+    // Codeforces recent ACs
+    if (cfData?.recentSubmissions?.length > 0) {
+      cfData.recentSubmissions.slice(0, 3).forEach(sub => {
+        events.push({
+          source: 'Codeforces',
+          sourceColor: 'text-purple-600 bg-purple-50 border-purple-200',
+          title: `Accepted ${sub.problemName}`,
+          url: `https://codeforces.com/contest/${sub.contestId}/problem/${sub.index}`,
+          time: sub.creationTimeSeconds ? new Date(sub.creationTimeSeconds * 1000) : new Date(),
+        });
+      });
+    }
+
+    // GitHub recent projects / repos
+    if (ghData?.repos?.length > 0) {
+      ghData.repos.slice(0, 3).forEach(repo => {
+        events.push({
+          source: 'GitHub',
+          sourceColor: 'text-gray-800 bg-gray-100 border-gray-200',
+          title: `Pushed updates to ${repo.name}`,
+          url: repo.url,
+          time: repo.updatedAt ? new Date(repo.updatedAt) : new Date(),
+        });
+      });
+    }
+
+    return events.sort((a, b) => b.time - a.time).slice(0, 6);
+  }, [lcData, cfData, ghData]);
 
   return (
-    <div className="space-y-6 pb-12 text-left">
-      {/* Title Row */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 pb-12 animate-fadeIn text-left">
+      
+      {/* 1. Dashboard Top Header Bar */}
+      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div>
-          <h1 className="text-[28px] font-bold text-[#111827] tracking-tight leading-tight">
-            Dashboard
-          </h1>
-          <p className="text-sm text-[#4B5563] mt-1 font-semibold">
-            CareerOS AI engine is actively mapping your developer credentials.
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-black text-[#111827] tracking-tight">
+              Developer Ecosystem Dashboard
+            </h1>
+            <span className="text-[10px] font-extrabold bg-[#EEF2FF] text-[#6366F1] px-2 py-0.5 rounded-md uppercase tracking-wider border border-[#E0E7FF]">
+              Live Telemetry
+            </span>
+          </div>
+          <p className="text-xs text-[#6B7280] font-semibold mt-1">
+            Real-time activity, algorithmic problem-solving telemetry, and cross-platform health.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <motion.button 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="px-5 py-2.5 bg-white border border-[#E5E9F0] text-[#111827] font-semibold text-xs rounded-xl shadow-sm hover:bg-[#FAFBFC] transition-all cursor-pointer flex items-center gap-1.5"
+        {/* Universal Sync Button */}
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={handleUniversalSync}
+            disabled={isSyncing}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer ${
+              isSyncing 
+                ? 'bg-[#7C3AED]/80 text-white cursor-wait' 
+                : 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white'
+            }`}
           >
-            <Download className="w-3.5 h-3.5 text-[#4B5563]" />
-            Export profile
-          </motion.button>
-          
-          <motion.button 
-            onClick={() => setActivePage('ai-mentor')}
-            whileHover={{ scale: 1.02, y: -1 }}
-            whileTap={{ scale: 0.98 }}
-            className="px-5 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-semibold text-xs rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
-          >
-            <Sparkles className="w-3.5 h-3.5 fill-white/10" />
-            Ask AI Mentor
-          </motion.button>
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Synchronizing Platforms...' : 'Universal Sync'}</span>
+          </button>
         </div>
       </div>
 
-      {/* Top Main Cards: Global Readiness and Recommended Next Steps */}
+      {/* 2. Top Overview Metric Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-white border border-[#E5E9F0] rounded-2xl p-4 shadow-xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] block">Active Sources</span>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-2xl font-black text-[#111827]">{activeSourcesCount}</span>
+            <span className="text-xs font-bold text-[#9CA3AF]">/ {sourcesList.length}</span>
+          </div>
+          <span className="text-[10px] text-emerald-600 font-semibold block mt-0.5">Telemetry connected</span>
+        </div>
+
+        <div className="bg-white border border-[#E5E9F0] rounded-2xl p-4 shadow-xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] block">LeetCode Solved</span>
+          <span className="text-2xl font-black text-amber-600 mt-1 block">
+            {lcData?.totalSolved || (lcHandle ? 'Synced' : '0')}
+          </span>
+          <span className="text-[10px] text-[#6B7280] font-semibold block mt-0.5">
+            {lcData?.ranking ? `Rank #${lcData.ranking.toLocaleString()}` : (lcHandle ? 'Active handle' : 'Not connected')}
+          </span>
+        </div>
+
+        <div className="bg-white border border-[#E5E9F0] rounded-2xl p-4 shadow-xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] block">Codeforces Rating</span>
+          <span className="text-2xl font-black text-[#7C3AED] mt-1 block">
+            {cfData?.rating || (cfHandle ? 'Synced' : 'Unrated')}
+          </span>
+          <span className="text-[10px] text-[#6B7280] font-semibold block mt-0.5 capitalize">
+            {cfData?.rank ? `${cfData.rank} tier` : (cfHandle ? 'Connected' : 'Not connected')}
+          </span>
+        </div>
+
+        <div className="bg-white border border-[#E5E9F0] rounded-2xl p-4 shadow-xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] block">Showcase Projects</span>
+          <span className="text-2xl font-black text-[#111827] mt-1 block">{projects.length}</span>
+          <span className="text-[10px] text-gray-500 font-semibold block mt-0.5">
+            {projects.filter(p => p.isImported).length} GitHub • {projects.filter(p => !p.isImported).length} Custom
+          </span>
+        </div>
+      </div>
+
+      {/* 3. ROW 1: LeetCode Snapshot & Codeforces Competitive Snapshot */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Global Readiness Score */}
-        <motion.div 
-          whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          className="lg:col-span-7 bg-white border border-[#E5E9F0] rounded-3xl p-6 flex flex-col sm:flex-row items-center gap-6 shadow-sm"
-        >
-          {/* Progress Ring with Motion */}
-          <div className="relative w-32 h-32 shrink-0 flex items-center justify-center">
-            <svg className="w-full h-full transform -rotate-90">
-              <circle cx="64" cy="64" r="54" stroke="#F3F4F6" strokeWidth="10" fill="transparent" />
-              <motion.circle 
-                cx="64" cy="64" r="54" 
-                stroke="#6366F1" strokeWidth="10" 
-                fill="transparent" 
-                strokeDasharray={339.2}
-                initial={{ strokeDashoffset: 339.2 }}
-                animate={{ strokeDashoffset: 339.2 - (339.2 * globalScore) / 100 }}
-                transition={{ duration: 1.2, ease: "easeOut" }}
-                strokeLinecap="round"
-              />
-            </svg>
-            <span className="absolute text-2xl font-black text-[#111827]">{globalScore}%</span>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <span className="text-[10px] font-bold text-[#6366F1] uppercase tracking-wider block">
-                Global Readiness Score
-              </span>
-              <h3 className="text-xl font-bold text-[#111827] mt-0.5">Highly Competitive</h3>
-              <p className="text-xs text-[#6B7280] font-semibold leading-relaxed mt-1">
-                You rank in the top 6% of general software engineers with similar experience. Your profile is ready for Tier-1 algorithmic and system design matching.
-              </p>
-            </div>
-
-            {/* Connected Sources Status Check List */}
-            <div className="flex flex-wrap gap-1.5 pt-3 border-t border-[#F3F4F6]">
-              {[
-                { name: 'GitHub', status: '✓' },
-                { name: 'LeetCode', status: '✓' },
-                { name: 'Codeforces', status: '✓' },
-                { name: 'Kaggle', status: '✓' },
-                { name: 'Resume', status: '✓' },
-                { name: 'Projects', status: '✓' },
-                { name: 'Portfolio', status: '● Healthy' }
-              ].map((s, idx) => (
-                <span 
-                  key={idx} 
-                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                    s.status === '✓' 
-                      ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
-                      : 'bg-indigo-50 border-indigo-100 text-indigo-700'
-                  }`}
-                >
-                  {s.name} {s.status}
-                </span>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Recommended Next Steps */}
-        <motion.div 
-          whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          className="lg:col-span-5 bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-sm flex flex-col justify-between"
-        >
-          <span className="text-[10px] font-bold text-[#4B5563] uppercase tracking-wider block mb-4">
-            Recommended Next Steps
-          </span>
-          <div className="space-y-4">
-            {/* Step 1 */}
-            <motion.div 
-              whileHover={{ x: 2 }}
-              className="flex items-center justify-between gap-3 p-3 hover:bg-[#FAFBFC] rounded-xl transition-all border border-[#F3F4F6]"
-            >
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-[#10B981] shrink-0" />
-                <span className="text-xs font-bold text-[#374151]">Complete the system design mock exam</span>
-              </div>
-              <span className="text-[9px] font-bold bg-[#EEF2FF] text-[#6366F1] px-2 py-0.5 rounded-full shrink-0">
-                +5% Readiness
-              </span>
-            </motion.div>
-
-            {/* Step 2 */}
-            <motion.div 
-              whileHover={{ x: 2 }}
-              className="flex items-center justify-between gap-3 p-3 hover:bg-[#FAFBFC] rounded-xl transition-all border border-[#F3F4F6]"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full bg-[#EEF2FF] flex items-center justify-center shrink-0">
-                  <Sparkles className="w-3 h-3 text-[#6366F1]" />
-                </div>
-                <span className="text-xs font-bold text-[#374151]">Apply matched role at Stripe (92% compatibility)</span>
-              </div>
-              <button 
-                onClick={() => setActivePage('companies')}
-                className="text-[10px] font-bold text-[#6366F1] hover:underline shrink-0 cursor-pointer"
-              >
-                Apply now
-              </button>
-            </motion.div>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Stats Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((st, idx) => (
-          <motion.div 
-            key={idx} 
-            whileHover={{ y: -2, transition: { duration: 0.15 } }}
-            className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-sm space-y-2"
-          >
-            <span className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block">
-              {st.label}
-            </span>
-            <div className="flex items-baseline gap-2.5">
-              <span className="text-2xl font-black text-[#111827]">{st.value}</span>
-              <span className="text-[10px] font-bold text-[#10B981]">{st.change}</span>
-            </div>
-            <p className="text-[10px] text-[#6B7280] font-semibold">
-              {st.desc}
-            </p>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Middle Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Fullstack Competency Dimension (Radar) */}
-        <motion.div 
-          whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-sm flex flex-col justify-between"
-        >
-          <span className="text-xs font-bold text-[#111827] uppercase tracking-wider block mb-4">
-            Fullstack Competency Dimension
-          </span>
-          <div className="h-64 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                <PolarGrid stroke="#F1F5F9" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: '#4B5563', fontSize: 11, fontWeight: 600 }} />
-                <Radar name="My Competency" dataKey="A" stroke="#7C3AED" fill="#8B5CF6" fillOpacity={0.2} strokeWidth={2} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-        </motion.div>
-
-        {/* Weekly Readiness Growth (Bar Chart) */}
-        <motion.div 
-          whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-sm flex flex-col justify-between"
-        >
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
-              Weekly Readiness Growth
-            </span>
-            <span className="text-xs font-bold text-[#10B981]">
-              +4.8% This Month
-            </span>
+        {/* LeetCode Snapshot Block (7 Cols) */}
+        <div className="lg:col-span-7 bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-5">
+          <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-3">
+            <div className="flex items-center gap-2">
+              <Code className="w-5 h-5 text-amber-500" />
+              <div>
+                <h2 className="text-sm font-bold text-[#111827]">LeetCode Algorithmic Snapshot</h2>
+                <span className="text-[11px] text-[#6B7280] font-semibold">
+                  {lcHandle ? `@${lcHandle}` : 'Account not connected'}
+                </span>
+              </div>
+            </div>
+            {lcHandle && (
+              <a
+                href={`https://leetcode.com/${lcHandle}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-bold text-[#7C3AED] hover:underline inline-flex items-center gap-1"
+              >
+                <span>View profile</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
           </div>
 
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <XAxis dataKey="name" stroke="#94A3B8" fontSize={11} fontWeight={600} tickLine={false} />
-                <ChartTooltip 
-                  contentStyle={{ background: '#1E293B', borderRadius: '12px', border: 'none', color: '#FFF', fontSize: '11px' }}
+          {lcData ? (
+            <div className="space-y-5">
+              {/* Solved Dial / Difficulties Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+                <div className="sm:col-span-5 bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-4 text-center">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Problems Solved</span>
+                  <div className="flex items-baseline justify-center gap-1.5 mt-1">
+                    <span className="text-3xl font-black text-[#111827]">{lcData.totalSolved || 0}</span>
+                    {lcData.totalQuestions > 0 && (
+                      <span className="text-xs font-bold text-gray-400">/ {lcData.totalQuestions}</span>
+                    )}
+                  </div>
+                  {lcData.ranking && (
+                    <span className="inline-block mt-2 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
+                      Rank #{lcData.ranking.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+
+                {/* Easy / Med / Hard Horizontal Bars */}
+                <div className="sm:col-span-7 space-y-2 bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-4">
+                  <div>
+                    <div className="flex justify-between text-[11px] font-bold mb-1">
+                      <span className="text-emerald-700">Easy ({lcData.easySolved || 0})</span>
+                      <span className="text-gray-400">{lcData.easyTotalQuestions ? `${Math.round((lcData.easySolved / lcData.easyTotalQuestions) * 100)}%` : ''}</span>
+                    </div>
+                    <div className="w-full bg-[#E5E9F0] h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${lcData.easyTotalQuestions ? Math.min(100, (lcData.easySolved / lcData.easyTotalQuestions) * 100) : 0}%` }} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-[11px] font-bold mb-1">
+                      <span className="text-amber-700">Medium ({lcData.mediumSolved || 0})</span>
+                      <span className="text-gray-400">{lcData.mediumTotalQuestions ? `${Math.round((lcData.mediumSolved / lcData.mediumTotalQuestions) * 100)}%` : ''}</span>
+                    </div>
+                    <div className="w-full bg-[#E5E9F0] h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-amber-500 h-full rounded-full" style={{ width: `${lcData.mediumTotalQuestions ? Math.min(100, (lcData.mediumSolved / lcData.mediumTotalQuestions) * 100) : 0}%` }} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-[11px] font-bold mb-1">
+                      <span className="text-rose-700">Hard ({lcData.hardSolved || 0})</span>
+                      <span className="text-gray-400">{lcData.hardTotalQuestions ? `${Math.round((lcData.hardSolved / lcData.hardTotalQuestions) * 100)}%` : ''}</span>
+                    </div>
+                    <div className="w-full bg-[#E5E9F0] h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-rose-500 h-full rounded-full" style={{ width: `${lcData.hardTotalQuestions ? Math.min(100, (lcData.hardSolved / lcData.hardTotalQuestions) * 100) : 0}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scalable Language Distribution (Horizontal Bars) */}
+              {languageStats.length > 0 && (
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">
+                      Language Distribution ({languageStats.length} Languages)
+                    </span>
+                    {languageStats.length > 5 && (
+                      <button
+                        onClick={() => setShowAllLanguages(!showAllLanguages)}
+                        className="text-[10px] font-bold text-[#7C3AED] hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <span>{showAllLanguages ? 'Show Top 5' : `+${languageStats.length - 5} More`}</span>
+                        {showAllLanguages ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    {displayedLanguages.map((l, idx) => {
+                      const pct = Math.min(100, Math.max(8, (l.problemsSolved / maxLanguageCount) * 100));
+                      return (
+                        <div key={idx} className="flex items-center gap-3 text-xs">
+                          <span className="w-24 font-bold text-gray-700 truncate">{l.languageName}</span>
+                          <div className="flex-1 bg-[#E5E9F0] h-2 rounded-full overflow-hidden">
+                            <div className="bg-[#7C3AED] h-full rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="w-16 text-right font-bold text-gray-900">{l.problemsSolved} Solved</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Badges Summary */}
+              {lcData.badges?.length > 0 && (
+                <div className="flex items-center gap-3 bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3.5">
+                  <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider shrink-0">
+                    Earned Badges:
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {lcData.badges.slice(0, 3).map((b, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5 bg-white border border-[#E5E9F0] px-2.5 py-1 rounded-lg shadow-xs">
+                        {b.icon ? <img src={b.icon} alt={b.displayName} className="w-4 h-4 object-contain" /> : <Award className="w-3.5 h-3.5 text-amber-500" />}
+                        <span className="text-[11px] font-bold text-gray-800">{b.displayName}</span>
+                      </div>
+                    ))}
+                    {lcData.badges.length > 3 && (
+                      <span className="text-[10px] font-bold text-gray-400 self-center">
+                        +{lcData.badges.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Compact LeetCode Heatmap */}
+              <div>
+                <LeetCodeHeatmap 
+                  submissionCalendar={lcData.submissionCalendar}
+                  totalPastYearSubmissions={lcData.totalPastYearSubmissions}
+                  totalActiveDays={lcData.totalActiveDays}
                 />
-                <Bar dataKey="score" fill="#7C3AED" radius={[6, 6, 0, 0]}>
-                  {barData.map((entry, idx) => (
-                    <Bar key={idx} fill={idx === barData.length - 1 ? '#7C3AED' : '#C7D2FE'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+              </div>
+            </div>
+          ) : (
+            <div className="p-8 text-center bg-[#FAFBFC] border border-dashed border-[#E5E9F0] rounded-2xl space-y-3">
+              <Code className="w-8 h-8 text-gray-300 mx-auto" />
+              <p className="text-xs text-gray-500 font-semibold">
+                LeetCode account is not connected yet. Connect your handle in Settings to visualize problem-solving metrics and heatmap.
+              </p>
+              {setActivePage && (
+                <button
+                  onClick={() => setActivePage('settings')}
+                  className="px-3.5 py-1.5 bg-[#7C3AED] text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-[#6D28D9] transition-all"
+                >
+                  Connect LeetCode
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Codeforces Competitive Snapshot (5 Cols) */}
+        <div className="lg:col-span-5 bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-5">
+          <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-3">
+            <div className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-[#7C3AED]" />
+              <div>
+                <h2 className="text-sm font-bold text-[#111827]">Codeforces Competitive Profile</h2>
+                <span className="text-[11px] text-[#6B7280] font-semibold">
+                  {cfHandle ? `@${cfHandle}` : 'Account not connected'}
+                </span>
+              </div>
+            </div>
+            {cfHandle && (
+              <a
+                href={`https://codeforces.com/profile/${cfHandle}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-bold text-[#7C3AED] hover:underline inline-flex items-center gap-1"
+              >
+                <span>View profile</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
           </div>
-        </motion.div>
+
+          {cfData ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3.5 text-center">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Rating</span>
+                  <span className="text-2xl font-black text-[#111827] mt-0.5 block">{cfData.rating || 'Unrated'}</span>
+                  <span className="text-[10px] text-purple-700 font-bold block mt-0.5">Max {cfData.maxRating || cfData.rating}</span>
+                </div>
+
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3.5 text-center">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Rank Tier</span>
+                  <span className="text-base font-black text-amber-700 capitalize mt-1 block">{cfData.rank || 'Unrated'}</span>
+                  <span className="text-[10px] text-gray-500 font-semibold block mt-0.5">{cfData.contestCount || 0} Contests</span>
+                </div>
+              </div>
+
+              {/* Recent Contest Solves */}
+              {cfData.recentSubmissions?.length > 0 && (
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-4 space-y-2.5">
+                  <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">
+                    Recent Accepted Solves
+                  </span>
+                  <div className="space-y-1.5">
+                    {cfData.recentSubmissions.slice(0, 5).map((sub, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#E5E9F0] text-xs font-semibold text-gray-800">
+                        <div className="flex items-center gap-2 truncate pr-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="truncate">{sub.problemName}</span>
+                        </div>
+                        {sub.rating && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 bg-purple-50 text-[#7C3AED] rounded border border-purple-100 shrink-0">
+                            ★ {sub.rating}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="p-8 text-center bg-[#FAFBFC] border border-dashed border-[#E5E9F0] rounded-2xl space-y-3">
+              <Award className="w-8 h-8 text-gray-300 mx-auto" />
+              <p className="text-xs text-gray-500 font-semibold">
+                Codeforces handle is not connected yet. Connect your handle in Settings to track contest rating and contest history.
+              </p>
+              {setActivePage && (
+                <button
+                  onClick={() => setActivePage('settings')}
+                  className="px-3.5 py-1.5 bg-[#7C3AED] text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-[#6D28D9] transition-all"
+                >
+                  Connect Codeforces
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
       </div>
 
-      {/* Bottom Card: Recent Active Credentials Mapped */}
-      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-sm space-y-4">
-        <h3 className="text-xs font-bold text-[#111827] uppercase tracking-wider">
-          Recent Active Credentials Mapped
-        </h3>
-
-        <div className="divide-y divide-[#F3F4F6]">
-          {credentials.map((cred, idx) => {
-            const Icon = cred.icon;
-            return (
-              <motion.div 
-                key={idx} 
-                whileHover={{ x: 2 }}
-                className="py-4 flex items-center justify-between gap-4 first:pt-0 last:pb-0"
+      {/* 4. ROW 2: GitHub Activity & Kaggle Machine Learning Snapshot */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* GitHub Activity Snapshot (7 Cols) */}
+        <div className="lg:col-span-7 bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-3">
+            <div className="flex items-center gap-2">
+              <Github className="w-5 h-5 text-gray-900" />
+              <div>
+                <h2 className="text-sm font-bold text-[#111827]">GitHub Repository & Commit Activity</h2>
+                <span className="text-[11px] text-[#6B7280] font-semibold">
+                  {ghHandle ? `@${ghHandle}` : 'Account not connected'}
+                </span>
+              </div>
+            </div>
+            {ghHandle && (
+              <a
+                href={`https://github.com/${ghHandle}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-bold text-[#7C3AED] hover:underline inline-flex items-center gap-1"
               >
-                <div className="flex items-center gap-3.5">
-                  <div className={`w-9 h-9 rounded-xl ${cred.color} flex items-center justify-center shrink-0`}>
-                    <Icon className="w-4.5 h-4.5" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-[#111827]">{cred.source}</h4>
-                    <p className="text-[11px] text-[#6B7280] font-semibold mt-0.5">{cred.title}</p>
+                <span>View GitHub</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
+          </div>
+
+          {ghData ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Repositories</span>
+                  <span className="text-xl font-black text-[#111827] mt-0.5 block">{ghData.publicRepos || 0}</span>
+                </div>
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Stars</span>
+                  <span className="text-xl font-black text-amber-600 mt-0.5 block">★ {ghData.totalStars || 0}</span>
+                </div>
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Followers</span>
+                  <span className="text-xl font-black text-emerald-600 mt-0.5 block">{ghData.followers || 0}</span>
+                </div>
+              </div>
+
+              {/* Top Languages */}
+              {ghData.topLanguages?.length > 0 && (
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3.5 space-y-2">
+                  <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">
+                    Top Code Languages
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {ghData.topLanguages.slice(0, 6).map((lang, idx) => (
+                      <span key={idx} className="text-xs font-bold px-2.5 py-1 bg-white border border-[#E5E9F0] rounded-lg text-gray-800 shadow-xs">
+                        {lang.name} <span className="text-gray-400 font-normal">({lang.count})</span>
+                      </span>
+                    ))}
                   </div>
                 </div>
+              )}
+            </div>
+          ) : (
+            <div className="p-8 text-center bg-[#FAFBFC] border border-dashed border-[#E5E9F0] rounded-2xl space-y-3">
+              <Github className="w-8 h-8 text-gray-300 mx-auto" />
+              <p className="text-xs text-gray-500 font-semibold">
+                GitHub account is not connected. Connect GitHub to index public repositories and showcase activity.
+              </p>
+              {setActivePage && (
+                <button
+                  onClick={() => setActivePage('settings')}
+                  className="px-3.5 py-1.5 bg-[#111827] text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-gray-800 transition-all"
+                >
+                  Connect GitHub
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
-                <div className="flex items-center gap-4 text-right">
-                  <span className="text-[10px] text-[#9CA3AF] font-semibold">{cred.time}</span>
-                  <span className="text-[10px] font-bold bg-[#E6F4EA] text-[#137333] px-2.5 py-1 rounded-full shrink-0">
-                    {cred.points}
+        {/* Kaggle Machine Learning Snapshot (5 Cols) */}
+        <div className="lg:col-span-5 bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-3">
+            <div className="flex items-center gap-2">
+              <Terminal className="w-5 h-5 text-sky-500" />
+              <div>
+                <h2 className="text-sm font-bold text-[#111827]">Kaggle ML Snapshot</h2>
+                <span className="text-[11px] text-[#6B7280] font-semibold">
+                  {kgHandle ? `@${kgHandle}` : 'Account not connected'}
+                </span>
+              </div>
+            </div>
+            {kgHandle && (
+              <a
+                href={kgData?.profileUrl || `https://www.kaggle.com/${kgHandle}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-bold text-sky-600 hover:underline inline-flex items-center gap-1"
+              >
+                <span>View Kaggle</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
+          </div>
+
+          {kgData ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Notebooks</span>
+                  <span className="text-xl font-black text-[#111827] mt-0.5 block">{kgData.notebooks?.count || 0}</span>
+                </div>
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Datasets</span>
+                  <span className="text-xl font-black text-sky-600 mt-0.5 block">{kgData.datasets?.count || 0}</span>
+                </div>
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Tier</span>
+                  <span className="text-xs font-black text-amber-700 capitalize mt-1 block">{kgData.tier || 'Active'}</span>
+                </div>
+              </div>
+
+              {kgData.datasets?.items?.length > 0 && (
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3.5 space-y-1.5">
+                  <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">
+                    Recent Public Datasets
+                  </span>
+                  {kgData.datasets.items.slice(0, 3).map((ds, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs font-semibold text-gray-800">
+                      <span className="truncate pr-2">{ds.title}</span>
+                      <span className="text-[10px] font-bold text-emerald-600 shrink-0">{ds.totalDownloads} dl</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="p-8 text-center bg-[#FAFBFC] border border-dashed border-[#E5E9F0] rounded-2xl space-y-3">
+              <Terminal className="w-8 h-8 text-gray-300 mx-auto" />
+              <p className="text-xs text-gray-500 font-semibold">
+                Kaggle account is not connected. Connect Kaggle to index public machine learning benchmarks.
+              </p>
+              {setActivePage && (
+                <button
+                  onClick={() => setActivePage('settings')}
+                  className="px-3.5 py-1.5 bg-[#7C3AED] text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-[#6D28D9] transition-all"
+                >
+                  Connect Kaggle
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* 5. ROW 3: Cross-Platform Recent Activity & Source Health / Data Freshness */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Unified Recent Activity Stream (7 Cols) */}
+        <div className="lg:col-span-7 bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-3">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-[#7C3AED]" />
+              <h2 className="text-sm font-bold text-[#111827]">Cross-Platform Recent Activity</h2>
+            </div>
+            <span className="text-[11px] font-semibold text-gray-400">Aggregated Timeline</span>
+          </div>
+
+          <div className="space-y-2.5">
+            {crossPlatformActivity.map((act, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-[#FAFBFC] border border-[#E5E9F0] transition-all">
+                <div className="flex items-center gap-2.5 truncate pr-3">
+                  <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md border uppercase tracking-wider shrink-0 ${act.sourceColor}`}>
+                    {act.source}
+                  </span>
+                  <span className="text-xs font-bold text-gray-800 truncate">{act.title}</span>
+                </div>
+                <span className="text-[10px] font-semibold text-gray-400 shrink-0">
+                  {formatRelativeTime(act.time)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Data Freshness & Connection Health (5 Cols) */}
+        <div className="lg:col-span-5 bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-3">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[#7C3AED]" />
+              <h2 className="text-sm font-bold text-[#111827]">Data Freshness & Source Health</h2>
+            </div>
+          </div>
+
+          <div className="divide-y divide-[#F3F4F6]">
+            {sourcesList.map((source) => {
+              const Icon = source.icon;
+              return (
+                <div key={source.key} className="py-2.5 flex items-center justify-between first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-2.5">
+                    <Icon className="w-4 h-4 text-gray-500" />
+                    <div>
+                      <span className="text-xs font-bold text-gray-800 block">{source.name}</span>
+                      <span className="text-[10px] font-semibold text-gray-400 block">{formatRelativeTime(source.lastSynced)}</span>
+                    </div>
+                  </div>
+
+                  <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                    source.connected ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {source.connected ? '● Healthy' : '○ Not connected'}
                   </span>
                 </div>
-              </motion.div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
+
       </div>
+
     </div>
   );
 }

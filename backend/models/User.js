@@ -27,6 +27,19 @@ const userSchema = new mongoose.Schema(
       enum: ['user', 'admin'],
       default: 'user',
     },
+    bio: {
+      type: String,
+      default: '',
+    },
+    socialLinks: {
+      github: { type: String, default: '' },
+      linkedin: { type: String, default: '' },
+      twitter: { type: String, default: '' },
+    },
+    careerDirections: {
+      type: [String],
+      default: [],
+    },
 
     // ─── OAuth provider identifiers ───────────────────
     auth: {
@@ -37,6 +50,12 @@ const userSchema = new mongoose.Schema(
       },
       google: {
         id: String,
+      },
+      kaggle: {
+        id: String,
+        username: String,
+        accessToken: { type: String, select: false },
+        refreshToken: { type: String, select: false },
       },
     },
 

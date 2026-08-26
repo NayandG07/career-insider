@@ -119,8 +119,10 @@ export const login = async (req, res) => {
 export const oauthCallback = async (req, res) => {
   try {
     const user = req.user;
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+
     if (!user) {
-      return res.redirect(`${process.env.CLIENT_URL}/login?error=auth_failed`);
+      return res.redirect(`${clientUrl}/login?error=auth_failed`);
     }
 
     const { accessToken, refreshToken } = generateTokens(user._id);
@@ -129,13 +131,42 @@ export const oauthCallback = async (req, res) => {
     user.refreshTokens.push({ token: refreshToken });
     await user.save();
 
-    // Redirect to frontend with tokens
-    res.redirect(
-      `${process.env.CLIENT_URL}/oauth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}`
-    );
+    // Respond with postMessage script for popup windows
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Authentication Successful</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; background: #F9FAFB; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; text-align: center; }
+            .card { background: white; border: 1px solid #E5E9F0; padding: 32px 24px; border-radius: 24px; max-width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+            h3 { color: #111827; margin: 0 0 8px 0; font-size: 18px; }
+            p { color: #6B7280; font-size: 13px; margin: 0; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h3>🎉 Connected Successfully!</h3>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ 
+                type: 'GITHUB_AUTH_SUCCESS',
+                accessToken: '${accessToken}',
+                refreshToken: '${refreshToken}'
+              }, '*');
+              setTimeout(() => window.close(), 1200);
+            } else {
+              window.location.href = '${clientUrl}/oauth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}#settings';
+            }
+          </script>
+        </body>
+      </html>
+    `);
   } catch (error) {
     console.error('OAuth callback error:', error);
-    res.redirect(`${process.env.CLIENT_URL}/login?error=server_error`);
+    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/login?error=server_error`);
   }
 };
 
