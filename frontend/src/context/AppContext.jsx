@@ -10,14 +10,17 @@ export const AppProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('accessToken'));
   const [userData, setUserData] = useState(null);
   const [telemetry, setTelemetry] = useState(null);
-  
+
   // Data state populated by API calls
   const [skills, setSkills] = useState(null);
   const [roadmap, setRoadmap] = useState(null);
   const [companies, setCompanies] = useState(null);
   const [conversation, setConversation] = useState([]);
-  
+
   const [isLoading, setIsLoading] = useState(true);
+
+  // Role is derived from the authenticated backend user, not a local toggle.
+  const isAdmin = userData?.role === 'admin';
 
   // Load initial user data if authenticated
   useEffect(() => {
@@ -37,12 +40,11 @@ export const AppProvider = ({ children }) => {
       ]);
       setUserData(userRes);
       setTelemetry(telRes);
-      
-      // We can also fetch the stored skill profile / roadmap here if we create GET endpoints for them,
-      // but currently the AI controller only has POST to generate/analyze.
-      // Assuming we modify the backend to return them on getMe, or just start them empty until generated.
     } catch (err) {
       console.error('Failed to load user data', err);
+      // Token is invalid or expired — clear auth state
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
       setIsAuthenticated(false);
     } finally {
       setIsLoading(false);
@@ -55,9 +57,10 @@ export const AppProvider = ({ children }) => {
   };
 
   const register = async (name, email, password) => {
+    // register() already returns valid tokens and stores them in localStorage.
+    // Do NOT call login() again — that would make a second bcrypt comparison
+    // and second network round-trip, which can cause 502 under load.
     await authService.register(name, email, password);
-    // After register, automatically login
-    await authService.login(email, password);
     setIsAuthenticated(true);
   };
 
@@ -98,7 +101,7 @@ export const AppProvider = ({ children }) => {
   const addMentorMessage = async (text, sessionId) => {
     const userMsg = { sender: 'user', text };
     setConversation(prev => [...prev, userMsg]);
-    
+
     try {
       const res = await aiService.mentorChat(text, sessionId);
       setConversation(prev => [...prev, { sender: 'ai', text: res.response }]);
@@ -106,6 +109,20 @@ export const AppProvider = ({ children }) => {
     } catch (e) {
       console.error(e);
       setConversation(prev => [...prev, { sender: 'ai', text: 'Error reaching mentor.' }]);
+    }
+  };
+
+  const refreshUser = async () => {
+    try {
+      const [userRes, telRes] = await Promise.all([
+        userService.getMe(),
+        telemetryService.getTelemetry().catch(() => null)
+      ]);
+      setUserData(userRes);
+      setTelemetry(telRes);
+      return { user: userRes, telemetry: telRes };
+    } catch (err) {
+      console.error('Failed to refresh user data', err);
     }
   };
 
@@ -118,7 +135,9 @@ export const AppProvider = ({ children }) => {
       isLoading,
       userData,
       setUserData,
+      refreshUser,
       telemetry,
+      isAdmin,
       skills,
       fetchSkillProfile,
       roadmap,

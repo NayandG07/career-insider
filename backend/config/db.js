@@ -1,4 +1,8 @@
+import dns from 'dns';
 import mongoose from 'mongoose';
+
+// Set public DNS servers to resolve MongoDB SRV records reliably, bypassing potential ISP DNS limitations.
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 /**
  * Connect to MongoDB Atlas.

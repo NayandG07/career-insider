@@ -1,26 +1,97 @@
-import React, { useState } from 'react';
-import Sidebar from './components/Sidebar';
+import React, { useState, useEffect } from 'react';
+import { DesktopSidebar, MobileDrawer } from './components/Sidebar';
 import Topbar from './components/Topbar';
 import Dashboard from './pages/Dashboard';
 import Roadmap from './pages/Roadmap';
 import SkillIntelligence from './pages/SkillIntelligence';
 import CompanyMatches from './pages/CompanyMatches';
+import Projects from './pages/Projects';
 import AIMentor from './pages/AIMentor';
 import Reports from './pages/Reports';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
-import { motion, AnimatePresence } from 'framer-motion';
-import { AppProvider, useApp } from './context/AppContext';
-import Landing from './pages/Landing';
-import Login from './pages/Login';
 import Admin from './pages/Admin';
 
+// Additional / Fallback pages
+import Sources from './pages/Sources';
+import Career from './pages/Career';
+import Recommendations from './pages/Recommendations';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminUsers from './pages/AdminUsers';
+import AdminIntegrations from './pages/AdminIntegrations';
+import AdminCompanies from './pages/AdminCompanies';
+import AdminSkills from './pages/AdminSkills';
+import AdminActivity from './pages/AdminActivity';
+import AdminSettings from './pages/AdminSettings';
+
+import { motion, AnimatePresence } from 'framer-motion';
+import { AppProvider, useApp } from './context/AppContext';
+import { ToastProvider } from './context/ToastContext';
+import ToastContainer from './components/Toast';
+import Landing from './pages/Landing';
+import Login from './pages/Login';
+
+// ─── Hash ↔ authView mapping ───────────────────────────────────────────────────
+// Maps URL hash fragments to authView state values so the public route survives
+// a page refresh. Uses hash routing to avoid needing server-side config.
+const HASH_TO_VIEW = {
+  '#/signin': 'login',
+  '#/signup': 'signup',
+};
+
+const VIEW_TO_HASH = {
+  landing: '/',
+  login: '#/signin',
+  signup: '#/signup',
+};
+
+function getInitialAuthView() {
+  const hash = window.location.hash;
+  return HASH_TO_VIEW[hash] ?? 'landing';
+}
+
+function getInitialActivePage(isAdmin) {
+  const hash = (window.location.hash || '').replace('#', '').replace('/', '');
+  const search = window.location.search || '';
+  
+  if (search.includes('github') || hash.includes('settings') || hash === 'settings') {
+    return 'settings';
+  }
+  if (hash.includes('projects') || hash === 'projects') {
+    return 'projects';
+  }
+  if (hash.includes('companies') || hash === 'companies') {
+    return 'companies';
+  }
+  if (hash.includes('reports') || hash === 'reports') {
+    return 'reports';
+  }
+  if (hash.includes('profile') || hash === 'profile') {
+    return 'profile';
+  }
+  if (hash.includes('admin') || hash === 'admin' || isAdmin) {
+    return 'admin';
+  }
+  return 'dashboard';
+}
+
+// ─── Authenticated Main App ────────────────────────────────────────────────────
+
 function MainAppContent() {
-  const [activePage, setActivePage] = useState('dashboard');
+  const { isAdmin } = useApp();
+  const [activePage, setActivePage] = useState(() => getInitialActivePage(isAdmin));
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (activePage) {
+      window.location.hash = `#${activePage}`;
+    }
+  }, [activePage]);
 
   const renderPage = () => {
     switch (activePage) {
+      // Restored TEMP Nav Views
       case 'dashboard':
         return <Dashboard setActivePage={setActivePage} />;
       case 'roadmap':
@@ -29,6 +100,8 @@ function MainAppContent() {
         return <SkillIntelligence />;
       case 'companies':
         return <CompanyMatches />;
+      case 'projects':
+        return <Projects setActivePage={setActivePage} />;
       case 'ai-mentor':
         return <AIMentor />;
       case 'reports':
@@ -39,6 +112,29 @@ function MainAppContent() {
         return <Settings />;
       case 'admin':
         return <Admin />;
+
+      // Fallback / Legacy User & Admin Views
+      case 'sources':
+        return <Sources />;
+      case 'career':
+        return <Career />;
+      case 'recommendations':
+        return <Recommendations />;
+      case 'admin-dashboard':
+        return <AdminDashboard />;
+      case 'admin-users':
+        return <AdminUsers />;
+      case 'admin-integrations':
+        return <AdminIntegrations />;
+      case 'admin-companies':
+        return <AdminCompanies />;
+      case 'admin-skills':
+        return <AdminSkills />;
+      case 'admin-activity':
+        return <AdminActivity />;
+      case 'admin-settings':
+        return <AdminSettings />;
+
       default:
         return <Dashboard setActivePage={setActivePage} />;
     }
@@ -46,31 +142,47 @@ function MainAppContent() {
 
   return (
     <div className="flex min-h-screen bg-[#F6F8FC] font-sans text-[#111827]">
-      {/* Navigation Sidebar */}
-      <Sidebar 
-        activePage={activePage} 
-        setActivePage={setActivePage} 
-        collapsed={sidebarCollapsed} 
-        setCollapsed={setSidebarCollapsed} 
+
+      {/* Desktop Sidebar — hidden on mobile via CSS */}
+      <div className="hidden md:block">
+        <DesktopSidebar
+          activePage={activePage}
+          setActivePage={setActivePage}
+          collapsed={sidebarCollapsed}
+          setCollapsed={setSidebarCollapsed}
+        />
+      </div>
+
+      {/* Mobile Drawer — rendered in DOM but only visible when open */}
+      <MobileDrawer
+        open={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+        activePage={activePage}
+        setActivePage={setActivePage}
       />
 
       {/* Main Container */}
-      <div 
-        className="flex-1 flex flex-col min-w-0 transition-all duration-300"
-        style={{ paddingLeft: sidebarCollapsed ? '80px' : '260px' }}
+      <div
+        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 md:pl-[260px] ${
+          sidebarCollapsed ? 'md:!pl-[72px]' : ''
+        }`}
       >
         {/* Sticky Glass Navbar */}
-        <Topbar activePage={activePage} setActivePage={setActivePage} />
+        <Topbar
+          activePage={activePage}
+          setActivePage={setActivePage}
+          onMenuToggle={() => setMobileDrawerOpen(true)}
+        />
 
         {/* Dynamic Content Body with Smooth Page Transitions */}
-        <main className="flex-1 px-8 py-8 w-full max-w-[1280px] mx-auto overflow-y-auto">
+        <main className="flex-1 px-4 sm:px-6 md:px-8 py-6 md:py-8 w-full max-w-[1280px] mx-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={activePage}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
             >
               {renderPage()}
             </motion.div>
@@ -81,14 +193,37 @@ function MainAppContent() {
   );
 }
 
+// ─── Router ────────────────────────────────────────────────────────────────────
+
 function AppRouter() {
   const { isAuthenticated, isLoading } = useApp();
-  const [authView, setAuthView] = useState('landing'); // 'landing', 'login', 'signup'
+
+  // authView is initialized from the URL hash so page refresh preserves the
+  // current public route (landing / sign-in / sign-up).
+  const [authView, setAuthView] = useState(getInitialAuthView);
+
+  // Keep the URL hash in sync whenever authView changes.
+  const handleSetAuthView = (view) => {
+    setAuthView(view);
+    const hash = VIEW_TO_HASH[view] ?? '/';
+    // Use replaceState so we don't pollute the browser history with auth tab switches.
+    window.history.replaceState(null, '', hash === '/' ? window.location.pathname : hash);
+  };
+
+  // Sync authView if the user manually changes the hash in the address bar.
+  useEffect(() => {
+    const onHashChange = () => {
+      const view = HASH_TO_VIEW[window.location.hash];
+      if (view) setAuthView(view);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F6F8FC]">
-        <div className="w-10 h-10 border-4 border-[#7C3AED] border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-4 border-[#7C3AED] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -97,18 +232,24 @@ function AppRouter() {
     return <MainAppContent />;
   }
 
-  // Unauthenticated routing
+  // Unauthenticated routing — public routes stay on the current route
   if (authView === 'login' || authView === 'signup') {
-    return <Login view={authView} setAuthView={setAuthView} />;
+    return <Login view={authView} setAuthView={handleSetAuthView} />;
   }
 
-  return <Landing setAuthView={setAuthView} />;
+  return <Landing setAuthView={handleSetAuthView} />;
 }
+
+// ─── Root ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppRouter />
-    </AppProvider>
+    <ToastProvider>
+      <AppProvider>
+        {/* ToastContainer is outside AppProvider so toasts render above everything */}
+        <ToastContainer />
+        <AppRouter />
+      </AppProvider>
+    </ToastProvider>
   );
 }

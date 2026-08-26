@@ -1,12 +1,16 @@
+import 'dotenv/config';
 import passport from 'passport';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import User from '../models/User.js';
 
+
 /**
  * Configure Passport.js OAuth strategies for GitHub and Google.
- * Both strategies find-or-create a user in the database and
- * store provider-specific tokens/IDs on the user record.
+ * Handles:
+ * 1. "Continue with GitHub" (Login / Sign up with automatic GitHub connection)
+ * 2. "Connect GitHub" (Attaching GitHub to an existing logged-in CareerOS user via OAuth state)
+ * 3. "Continue with Google"
  */
 
 passport.serializeUser((user, done) => {
@@ -26,37 +30,75 @@ passport.deserializeUser(async (id, done) => {
 passport.use(
   new GitHubStrategy(
     {
-      clientID: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
-      callbackURL: process.env.GITHUB_CALLBACK_URL,
+      clientID: process.env.GITHUB_CLIENT_ID || 'placeholder',
+      clientSecret: process.env.GITHUB_CLIENT_SECRET || 'placeholder',
+      callbackURL: process.env.GITHUB_CALLBACK_URL || 'http://localhost:5000/api/auth/github/callback',
       scope: ['user:email', 'read:user', 'repo'],
+      passReqToCallback: true,
     },
-    async (accessToken, refreshToken, profile, done) => {
+    async (req, accessToken, refreshToken, profile, done) => {
       try {
-        // Try to find an existing user by GitHub ID
-        let user = await User.findOne({ 'auth.github.id': profile.id });
+        let targetUserId = null;
+        if (req.query?.state) {
+          try {
+            const parsedState = JSON.parse(req.query.state);
+            if (parsedState.action === 'connect' && parsedState.userId) {
+              targetUserId = parsedState.userId;
+            }
+          } catch {
+            // Ignore non-JSON state
+          }
+        }
 
+        let user = req.user;
+        if (!user && targetUserId) {
+          user = await User.findById(targetUserId);
+        }
+
+        // ── Case A: Connect GitHub to Existing Authenticated User ──
         if (user) {
-          // Update the access token on every login
-          user.auth.github.accessToken = accessToken;
-          user.auth.github.username = profile.username;
+          user.auth = user.auth || {};
+          user.auth.github = {
+            id: profile.id,
+            username: profile.username,
+            accessToken,
+          };
+          user.connectedSources = user.connectedSources || {};
+          user.connectedSources.github = profile.username;
+          if (!user.avatar && profile.photos?.[0]?.value) {
+            user.avatar = profile.photos[0].value;
+          }
           await user.save();
           return done(null, user);
         }
 
-        // Check if a user with the same email already exists (e.g. registered via email/password)
+        // ── Case B: Login / Register with GitHub ──────────────────
+        // 1. Try to find an existing user by GitHub ID
+        user = await User.findOne({ 'auth.github.id': profile.id });
+
+        if (user) {
+          user.auth.github.accessToken = accessToken;
+          user.auth.github.username = profile.username;
+          user.connectedSources = user.connectedSources || {};
+          user.connectedSources.github = profile.username;
+          await user.save();
+          return done(null, user);
+        }
+
+        // 2. Try to find existing user by primary email
         const emails = profile.emails || [];
         const primaryEmail = emails.length > 0 ? emails[0].value : null;
 
         if (primaryEmail) {
           user = await User.findOne({ email: primaryEmail });
           if (user) {
-            // Link GitHub to existing account
+            user.auth = user.auth || {};
             user.auth.github = {
               id: profile.id,
               username: profile.username,
               accessToken,
             };
+            user.connectedSources = user.connectedSources || {};
             user.connectedSources.github = profile.username;
             if (!user.avatar && profile.photos?.[0]?.value) {
               user.avatar = profile.photos[0].value;
@@ -66,10 +108,10 @@ passport.use(
           }
         }
 
-        // Create a new user
+        // 3. Create new CareerOS user with GitHub connection automatically linked
         user = await User.create({
           name: profile.displayName || profile.username,
-          email: primaryEmail,
+          email: primaryEmail || `${profile.username}@github.user`,
           avatar: profile.photos?.[0]?.value || '',
           auth: {
             github: {
@@ -102,20 +144,17 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        // Try to find an existing user by Google ID
         let user = await User.findOne({ 'auth.google.id': profile.id });
 
         if (user) {
           return done(null, user);
         }
 
-        // Check if a user with the same email already exists
         const primaryEmail = profile.emails?.[0]?.value || null;
 
         if (primaryEmail) {
           user = await User.findOne({ email: primaryEmail });
           if (user) {
-            // Link Google to existing account
             user.auth.google = { id: profile.id };
             if (!user.avatar && profile.photos?.[0]?.value) {
               user.avatar = profile.photos[0].value;
@@ -125,7 +164,6 @@ passport.use(
           }
         }
 
-        // Create a new user
         user = await User.create({
           name: profile.displayName,
           email: primaryEmail,

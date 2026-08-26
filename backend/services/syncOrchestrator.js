@@ -18,8 +18,8 @@ import { decrypt } from '../utils/encrypt.js';
 export async function syncUserSources(user) {
   const results = {};
 
-  // Fetch the user with the GitHub access token
-  const fullUser = await User.findById(user._id).select('+auth.github.accessToken');
+  // Fetch the user with provider access tokens
+  const fullUser = await User.findById(user._id).select('+auth.github.accessToken +auth.kaggle.accessToken');
 
   // ─── GitHub ─────────────────────────────────────────────
   if (fullUser.connectedSources?.github) {
@@ -91,13 +91,11 @@ export async function syncUserSources(user) {
   }
 
   // ─── Kaggle ─────────────────────────────────────────────
-  if (fullUser.connectedSources?.kaggle?.username) {
+  const kaggleUsername = fullUser.connectedSources?.kaggle?.username || (typeof fullUser.connectedSources?.kaggle === 'string' ? fullUser.connectedSources.kaggle : '');
+  if (kaggleUsername) {
     try {
-      let apiKey = '';
-      if (fullUser.connectedSources.kaggle.apiKey_encrypted) {
-        apiKey = decrypt(fullUser.connectedSources.kaggle.apiKey_encrypted);
-      }
-      const data = await fetchKaggleData(fullUser.connectedSources.kaggle.username, apiKey);
+      const accessToken = fullUser.auth?.kaggle?.accessToken || null;
+      const data = await fetchKaggleData(kaggleUsername, accessToken);
       await Telemetry.findOneAndUpdate(
         { userId: user._id, source: 'kaggle' },
         { data, fetchedAt: new Date() },
