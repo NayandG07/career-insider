@@ -40,8 +40,10 @@ export default function Roadmap() {
     companies,
     roadmap: consolidatedPath,
     fetchRoadmap,
-    completeRoadmapItem
+    completeRoadmapItem,
+    updateSubtask,
   } = useApp();
+
 
   const [selectedRoles, setSelectedRoles] = useState(["Senior Backend Engineer"]);
   const [activeTab, setActiveTab] = useState("timeline"); // "timeline" or "skills"
@@ -163,7 +165,14 @@ export default function Roadmap() {
     const updatedSelected = updatedMilestones.find(m => m.id === milestoneId);
     setSelectedMilestone(updatedSelected);
 
+    // Persist to DB (fire-and-forget; local state already updated)
+    const toggledSubtask = updatedSelected?.subtasks?.find(s => s.id === subtaskId);
+    if (toggledSubtask) {
+      updateSubtask(milestoneId, subtaskId, toggledSubtask.completed).catch(() => {});
+    }
+
     // Call context complete action if relevant to keep mock outputs synchronized
+
     if (updatedSelected.status === "completed") {
       if (updatedSelected.title.includes("Docker")) {
         completeRoadmapItem("Learn Docker");
@@ -221,17 +230,15 @@ export default function Roadmap() {
   // Identify critical nodes based on selected target company
   const isMilestoneCritical = (milestoneTitle) => {
     if (!selectedCompany) return false;
-    
-    const companyGaps = {
-      "Razorpay": ["Docker", "Redis", "Caching", "Containerization"],
-      "Google": ["Distributed", "Kubernetes", "Orchestration", "SRE"],
-      "Uber": ["Kafka", "Docker", "Event-Driven", "Distributed"],
-      "Atlassian": ["Docker", "Kubernetes", "Orchestration"]
-    };
 
-    const gaps = companyGaps[selectedCompany.name] || [];
+    // Use the real missing skills from the AI-matched company data in context
+    const matchedCompanyData = (companies || []).find(
+      c => c.name === selectedCompany.name
+    );
+    const gaps = matchedCompanyData?.missing || [];
     return gaps.some(gap => milestoneTitle.toLowerCase().includes(gap.toLowerCase()));
   };
+
 
   return (
     <div className="space-y-6 pb-16 text-left relative">

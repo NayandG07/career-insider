@@ -125,6 +125,18 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const updateSubtask = async (milestoneId, subtaskId, completed) => {
+    try {
+      const res = await aiService.updateSubtask(milestoneId, subtaskId, completed);
+      // Refresh roadmap state from updated DB milestones
+      if (res.milestones) {
+        setRoadmap(prev => prev ? { ...prev, milestones: res.milestones } : prev);
+      }
+    } catch (e) {
+      console.error('Failed to persist subtask update', e);
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       isAuthenticated,
@@ -138,6 +150,7 @@ export const AppProvider = ({ children }) => {
       telemetry,
       isAdmin,
       skills,
+      setSkills,
       fetchSkillProfile,
       roadmap,
       fetchRoadmap,
@@ -147,11 +160,13 @@ export const AppProvider = ({ children }) => {
       conversation,
       addMentorMessage,
       setConversation,
-      completeRoadmapItem: () => {}, // Mocked to avoid errors in Roadmap.jsx
+      updateSubtask,
+      completeRoadmapItem: () => {}, // kept for backward compat, use updateSubtask instead
     }}>
       {children}
     </AppContext.Provider>
   );
 };
+
 
 export const useApp = () => useContext(AppContext);

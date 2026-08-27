@@ -11,6 +11,7 @@ from workflows.skill_analyzer import analyze_skills, SkillProfile
 from workflows.roadmap_generator import generate_roadmap, Roadmap
 from workflows.company_matcher import match_companies, MatchResponse
 from workflows.mentor_chat import chat_with_mentor, MentorResponse
+from workflows.progress_summary import generate_progress_summary, SummaryResponse
 
 logging.basicConfig(level=logging.INFO)
 
@@ -115,4 +116,20 @@ async def process_mentor_chat(req: MentorRequest):
         return result
     except Exception as e:
         logging.error(f"Mentor chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ─── Progress Summary ─────────────────────────────────────
+class ProgressSummaryRequest(BaseModel):
+    skill_profile: Dict[str, Any] = {}
+    roadmap: Dict[str, Any] = {}
+    user_context: Dict[str, Any] = {}
+
+@app.post("/ai/progress-summary")
+async def process_progress_summary(req: ProgressSummaryRequest):
+    """Generate a short personalised AI progress summary for the Reports page."""
+    try:
+        result = await generate_progress_summary(req.skill_profile, req.roadmap, req.user_context)
+        return result
+    except Exception as e:
+        logging.error(f"Progress summary error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

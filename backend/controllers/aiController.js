@@ -75,9 +75,18 @@ export const analyzeSkills = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Update readiness score on user
+    // Update readiness score + history snapshot on user
     if (profileData.readiness_score != null) {
-      await req.user.updateOne({ readinessScore: profileData.readiness_score });
+      await req.user.updateOne({
+        readinessScore: profileData.readiness_score,
+        lastAnalyzedAt: new Date(),
+        $push: {
+          readinessHistory: {
+            $each: [{ score: profileData.readiness_score, date: new Date() }],
+            $slice: -10, // keep last 10 snapshots
+          },
+        },
+      });
     }
 
     res.json({
@@ -240,3 +249,80 @@ export const mentorChat = async (req, res) => {
     res.status(502).json({ error: 'AI mentor is currently unavailable.' });
   }
 };
+
+/**
+ * GET /api/ai/progress-summary
+ * Generate a short AI-written progress summary for the Reports page.
+ */
+export const getProgressSummary = async (req, res) => {
+  try {
+    const skillProfile = await SkillProfile.findOne({ userId: req.user._id });
+    const roadmap = await Roadmap.findOne({ userId: req.user._id });
+
+    const aiResponse = await axios.post(
+      `${getAiUrl()}/ai/progress-summary`,
+      {
+        skill_profile: skillProfile ? skillProfile.toObject() : {},
+        roadmap: roadmap ? { milestones: roadmap.milestones, readiness: roadmap.readiness } : {},
+        user_context: {
+          name: req.user.name,
+          readinessScore: req.user.readinessScore,
+          lastAnalyzedAt: req.user.lastAnalyzedAt,
+        },
+      },
+      { timeout: 60000 }
+    );
+
+    res.json({ summary: aiResponse.data.summary || '' });
+  } catch (error) {
+    console.error('Progress summary error:', error.response?.data || error.message);
+    // Return a sensible fallback rather than a 502 so the page still loads
+    res.json({ summary: null });
+  }
+};
+
+/**
+ * PATCH /api/ai/roadmap/subtask
+ * Persist a subtask's completion status to the DB.
+ * Body: { milestoneId, subtaskId, completed }
+ */
+export const updateSubtask = async (req, res) => {
+  try {
+    const { milestoneId, subtaskId, completed } = req.body;
+    if (!milestoneId || !subtaskId || completed === undefined) {
+      return res.status(400).json({ error: 'milestoneId, subtaskId, and completed are required.' });
+    }
+
+    const roadmap = await Roadmap.findOne({ userId: req.user._id });
+    if (!roadmap) return res.status(404).json({ error: 'No roadmap found.' });
+
+    let milestoneFound = false;
+    const updatedMilestones = roadmap.milestones.map((m) => {
+      if (m.id !== milestoneId) return m;
+      milestoneFound = true;
+      const updatedSubtasks = m.subtasks.map((s) =>
+        s.id === subtaskId ? { ...s.toObject(), completed } : s.toObject()
+      );
+      const pct = Math.round(
+        (updatedSubtasks.filter((s) => s.completed).length / updatedSubtasks.length) * 100
+      );
+      return {
+        ...m.toObject(),
+        subtasks: updatedSubtasks,
+        progress: pct,
+        status: pct === 100 ? 'completed' : pct > 0 ? 'in-progress' : 'locked',
+      };
+    });
+
+    if (!milestoneFound) return res.status(404).json({ error: 'Milestone not found.' });
+
+    roadmap.milestones = updatedMilestones;
+    await roadmap.save();
+
+    res.json({ ok: true, milestones: roadmap.milestones });
+  } catch (error) {
+    console.error('Subtask update error:', error.message);
+    res.status(500).json({ error: 'Failed to update subtask.' });
+  }
+};
+

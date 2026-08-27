@@ -75,6 +75,15 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Historical snapshots for the progress chart in Reports
+    readinessHistory: [
+      {
+        score: { type: Number, required: true },
+        date: { type: Date, default: Date.now },
+      },
+    ],
+    lastAnalyzedAt: { type: Date, default: null },
+
 
     // ─── Refresh tokens ───────────────────────────────
     refreshTokens: [

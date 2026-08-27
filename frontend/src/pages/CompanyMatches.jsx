@@ -7,7 +7,8 @@ import {
   Briefcase,
   MapPin,
   TrendingUp,
-  DollarSign
+  DollarSign,
+  Loader2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -72,46 +73,61 @@ const DEFAULT_COMPANIES = [
 ];
 
 export default function CompanyMatches() {
-  const [selectedCompId, setSelectedCompId] = useState('stripe');
+  const [selectedCompId, setSelectedCompId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { companies: matchedCompanies } = useApp();
+  const { companies: matchedCompanies, fetchCompanies } = useApp();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const companies = matchedCompanies && matchedCompanies.length > 0 
+  const hasData = matchedCompanies && matchedCompanies.length > 0;
+
+  const LOGO_COLORS = [
+    'bg-[#635BFF]', 'bg-[#121212]', 'bg-[#FF5A5F]', 'bg-[#E50914]',
+    'bg-[#0284C7]', 'bg-[#059669]', 'bg-[#D97706]', 'bg-[#7C3AED]',
+  ];
+
+  const companies = hasData
     ? matchedCompanies.map((c, i) => ({
         id: c.name.toLowerCase().replace(/\s+/g, '-'),
         name: c.name,
         logoChar: c.name.charAt(0).toUpperCase(),
-        logoBg: ["bg-[#635BFF]", "bg-[#121212]", "bg-[#FF5A5F]", "bg-[#E50914]"][i % 4],
-        salary: c.hiringInsights || "Competitive Compensation",
+        logoBg: LOGO_COLORS[i % LOGO_COLORS.length],
+        salary: c.hiringInsights || 'Competitive Compensation',
         match: c.matchScore || 0,
-        location: c.tier || "Remote",
+        location: c.tier || 'Remote',
         tags: [...(c.strong || []), ...(c.missing || [])].slice(0, 4),
         breakdown: [
-          ...((c.strong || []).map(s => ({ factor: s, desc: "Matched based on connected profile.", status: 'strong' }))),
-          ...((c.missing || []).map(m => ({ factor: m, desc: "Identified gap in profile.", status: 'gap' })))
-        ]
+          ...((c.strong || []).map(s => ({ factor: s, desc: 'Matched based on your profile.', status: 'strong' }))),
+          ...((c.missing || []).map(m => ({ factor: m, desc: 'Gap identified in your profile.', status: 'gap' }))),
+        ],
       }))
-    : DEFAULT_COMPANIES;
+    : [];
 
-  const filteredCompanies = companies.filter(c => 
+  const filteredCompanies = companies.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase())) ||
     c.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const activeComp = filteredCompanies.find(c => c.id === selectedCompId) || filteredCompanies[0] || companies[0];
+  const activeComp = filteredCompanies.find(c => c.id === selectedCompId) || filteredCompanies[0] || null;
+
+  const handleRunAnalysis = async () => {
+    setIsLoading(true);
+    try { await fetchCompanies(); } catch (e) { console.error(e); }
+    finally { setIsLoading(false); }
+  };
 
   const getMatchBadgeClass = (score) => {
-    if (score >= 90) return "bg-[#E8F5E9] text-[#137333]";
-    if (score >= 80) return "bg-[#EEF2FF] text-[#6366F1]";
-    return "bg-[#FFF9E6] text-[#B78103]";
+    if (score >= 90) return 'bg-[#E8F5E9] text-[#137333]';
+    if (score >= 80) return 'bg-[#EEF2FF] text-[#6366F1]';
+    return 'bg-[#FFF9E6] text-[#B78103]';
   };
 
   const getFactorIndicator = (status) => {
-    if (status === 'strong') return "bg-[#10B981]";
-    return "bg-[#F59E0B]";
+    if (status === 'strong') return 'bg-[#10B981]';
+    return 'bg-[#F59E0B]';
   };
+
 
   return (
     <div className="space-y-6 pb-12 text-left animate-fadeIn">
@@ -157,14 +173,40 @@ export default function CompanyMatches() {
         </div>
       </div>
 
-      {/* Layout Columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* Empty State — shown when no analysis has been run yet */}
+      {!hasData && (
+        <div className="bg-white border border-dashed border-[#E5E9F0] rounded-3xl p-16 text-center space-y-5 shadow-sm">
+          <div className="w-16 h-16 bg-[#EEF2FF] rounded-full flex items-center justify-center mx-auto text-[#6366F1]">
+            <Briefcase className="w-8 h-8" />
+          </div>
+          <div className="max-w-sm mx-auto space-y-2">
+            <h3 className="text-base font-extrabold text-[#111827]">No Match Data Yet</h3>
+            <p className="text-xs text-[#6B7280] font-semibold leading-relaxed">
+              Run the AI analysis to find companies that match your real skill profile, gaps, and strengths.
+            </p>
+          </div>
+          <button
+            onClick={handleRunAnalysis}
+            disabled={isLoading}
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
+          >
+            {isLoading
+              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Analyzing…</>
+              : <><Sparkles className="w-3.5 h-3.5" /> Run Company Match Analysis</>
+            }
+          </button>
+        </div>
+      )}
+
+      {/* Layout Columns — only shown when real data exists */}
+      {hasData && <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* Left Column: Company Match Cards Grid */}
         <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-5 h-fit">
           {filteredCompanies.map((comp) => {
             const isSelected = comp.id === activeComp?.id;
             return (
+
               <motion.div
                 key={comp.id}
                 onClick={() => setSelectedCompId(comp.id)}
@@ -297,7 +339,10 @@ export default function CompanyMatches() {
 
       </div>
 
+      </div>}
+
     </div>
   );
 }
+
 

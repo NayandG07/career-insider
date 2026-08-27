@@ -12,7 +12,12 @@ class MentorResponse(BaseModel):
 async def chat_with_mentor(chat_history: List[Dict[str, str]], user_context: dict) -> MentorResponse:
     """Generates a contextual response from the AI mentor."""
     
-    history_str = "\\n".join([f"{msg['role']}: {msg['content']}" for msg in chat_history])
+    # Normalize — Node sends {role, content}, main.py sends {sender, text}
+    history_str = "\n".join([
+        f"{msg.get('role') or msg.get('sender', 'user')}: {msg.get('content') or msg.get('text', '')}"
+        for msg in chat_history
+    ])
+
     
     prompt = f"""
     You are an expert career mentor for software engineers.

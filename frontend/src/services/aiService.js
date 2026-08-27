@@ -20,4 +20,14 @@ export const aiService = {
     const res = await api.post('/ai/mentor/chat', { message, sessionId });
     return res.data;
   },
+
+  getProgressSummary: async () => {
+    const res = await api.get('/ai/progress-summary');
+    return res.data; // { summary: "..." }
+  },
+
+  updateSubtask: async (milestoneId, subtaskId, completed) => {
+    const res = await api.patch('/ai/roadmap/subtask', { milestoneId, subtaskId, completed });
+    return res.data;
+  },
 };
