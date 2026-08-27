@@ -72,30 +72,29 @@ export const AppProvider = ({ children }) => {
 
   // Generate real data from AI endpoints
   const fetchSkillProfile = async () => {
-    try {
-      const res = await aiService.analyzeSkills();
-      setSkills(res.profile);
-    } catch (e) {
-      console.error(e);
-    }
+    // Throws on error so callers can show proper error states
+    const res = await aiService.analyzeSkills();
+    // res.profile is the full SkillProfile DB document: { categories, masteryItems, gapAnalysis, trendingSkills }
+    setSkills(res.profile);
+    // Also refresh user to pick up updated readinessScore
+    userService.getMe().then(setUserData).catch(() => {});
+    return res.profile;
   };
 
   const fetchRoadmap = async (roles) => {
-    try {
-      const res = await aiService.generateRoadmap(roles);
-      setRoadmap(res);
-    } catch (e) {
-      console.error(e);
-    }
+    // Throws on error so callers can show proper error states
+    const res = await aiService.generateRoadmap(roles);
+    // res = { milestones, readiness } from Node controller
+    setRoadmap(res);
+    return res;
   };
 
   const fetchCompanies = async () => {
-    try {
-      const res = await aiService.matchCompanies();
-      setCompanies(res.matches);
-    } catch (e) {
-      console.error(e);
-    }
+    // Throws on error so callers can show proper error states
+    const res = await aiService.matchCompanies();
+    // res = { matches: [{name, matchScore, tier, hiringInsights, strong, missing}] }
+    setCompanies(res.matches);
+    return res.matches;
   };
 
   const addMentorMessage = async (text, sessionId) => {

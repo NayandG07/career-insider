@@ -1,158 +1,228 @@
 import React, { useState, useEffect } from 'react';
 import { adminService } from '../services/adminService';
-import { Shield, Key, Save, Trash2, Plus, RefreshCw } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useApp } from '../context/AppContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Shield, Users, Key, Cpu, Activity, RefreshCw,
+  TrendingUp, Database, Zap, CheckCircle2, AlertCircle,
+  ArrowRight, BarChart2
+} from 'lucide-react';
+import AdminSettings from './AdminSettings';
+import AdminUsers from './AdminUsers';
 
-export default function Admin() {
-  const [keys, setKeys] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [provider, setProvider] = useState('gemini');
-  const [keyValue, setKeyValue] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
+// ─── Sub-nav items ────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    fetchKeys();
-  }, []);
+const NAV_ITEMS = [
+  { id: 'overview', label: 'Overview', icon: BarChart2 },
+  { id: 'ai-settings', label: 'AI Settings', icon: Cpu },
+  { id: 'users', label: 'Users', icon: Users },
+];
 
-  const fetchKeys = async () => {
-    try {
-      setLoading(true);
-      const data = await adminService.getApiKeys();
-      setKeys(data);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to fetch API keys. Are you an admin?");
-    } finally {
-      setLoading(false);
-    }
-  };
+// ─── Overview Panel ───────────────────────────────────────────────────────────
 
-  const handleAddKey = async (e) => {
-    e.preventDefault();
-    if (!keyValue.trim()) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await adminService.addApiKey(provider, keyValue);
-      setKeyValue('');
-      await fetchKeys();
-    } catch (err) {
-      console.error(err);
-      setError("Failed to add key.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDeleteKey = async (id) => {
-    try {
-      await adminService.deleteApiKey(id);
-      await fetchKeys();
-    } catch (err) {
-      console.error(err);
-      setError("Failed to delete key.");
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <RefreshCw className="w-6 h-6 text-[#7C3AED] animate-spin" />
-      </div>
-    );
-  }
+function OverviewPanel({ health, userCount, keyCount, onNav }) {
+  const stats = [
+    {
+      label: 'Registered Users',
+      value: userCount ?? '—',
+      icon: Users,
+      color: 'text-blue-600 bg-blue-50',
+    },
+    {
+      label: 'API Keys',
+      value: keyCount ?? '—',
+      icon: Key,
+      color: 'text-violet-600 bg-violet-50',
+    },
+    {
+      label: 'AI Service',
+      value: health?.aiService === 'up' ? 'Online' : 'Offline',
+      icon: Activity,
+      color: health?.aiService === 'up' ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50',
+    },
+  ];
 
   return (
-    <div className="space-y-6 pb-12 animate-fadeIn text-left max-w-4xl">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-[28px] font-bold text-[#111827] tracking-tight leading-tight flex items-center gap-2">
-            <Shield className="w-7 h-7 text-[#7C3AED]" />
-            Admin Control Panel
-          </h1>
-          <p className="text-sm text-[#4B5563] mt-1 font-semibold">
-            Manage system configurations and AI provider fallback chains.
-          </p>
-        </div>
+    <div className="space-y-6">
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {stats.map(s => {
+          const Icon = s.icon;
+          return (
+            <div key={s.label} className="bg-white border border-[#E5E9F0] rounded-2xl p-5 shadow-sm">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${s.color}`}>
+                <Icon className="w-5 h-5" />
+              </div>
+              <div className="text-2xl font-black text-[#111827]">{s.value}</div>
+              <div className="text-xs text-[#6B7280] font-semibold mt-0.5">{s.label}</div>
+            </div>
+          );
+        })}
       </div>
 
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-sm font-bold text-red-600">
-          {error}
+      {/* Provider Health */}
+      {health?.providers && (
+        <div className="bg-white border border-[#E5E9F0] rounded-2xl p-5 shadow-sm">
+          <h3 className="text-sm font-bold text-[#111827] mb-4 flex items-center gap-2">
+            <Zap className="w-4 h-4 text-[#7C3AED]" />
+            Provider Health
+          </h3>
+          <div className="space-y-3">
+            {Object.entries(health.providers).map(([provider, info]) => {
+              const isOk = info.status === 'operational';
+              const hasKeys = info.totalActiveKeys > 0;
+              return (
+                <div key={provider} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    {isOk ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-amber-400" />
+                    )}
+                    <span className="text-xs font-bold text-[#374151] capitalize">{provider}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-semibold text-[#6B7280]">
+                      {hasKeys ? `${info.healthyKeys}/${info.totalActiveKeys} keys healthy` : 'No keys configured'}
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      isOk ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      hasKeys ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      'bg-gray-50 text-gray-500 border-gray-200'
+                    }`}>
+                      {info.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-[#111827] flex items-center gap-2">
-            <Key className="w-5 h-5 text-[#10B981]" />
-            API Key Pool
-          </h2>
-        </div>
-
-        <form onSubmit={handleAddKey} className="flex items-end gap-4 mb-8">
-          <div className="space-y-1.5 flex-1">
-            <label className="text-xs font-bold text-[#4B5563] ml-1">Provider</label>
-            <select 
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-              className="w-full px-4 py-3 bg-[#F9FAFB] border border-[#E5E9F0] rounded-xl text-sm font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED]"
-            >
-              <option value="gemini">Google Gemini</option>
-              <option value="openai">OpenAI</option>
-              <option value="huggingface">HuggingFace</option>
-            </select>
+      {/* Quick Links */}
+      <div className="grid grid-cols-2 gap-4">
+        <button
+          onClick={() => onNav('ai-settings')}
+          className="bg-white border border-[#E5E9F0] rounded-2xl p-5 shadow-sm text-left hover:border-[#7C3AED]/30 hover:shadow-md transition-all group cursor-pointer"
+        >
+          <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center mb-3">
+            <Cpu className="w-5 h-5 text-violet-600" />
           </div>
-          
-          <div className="space-y-1.5 flex-[2]">
-            <label className="text-xs font-bold text-[#4B5563] ml-1">API Key</label>
-            <input 
-              type="password"
-              value={keyValue}
-              onChange={(e) => setKeyValue(e.target.value)}
-              placeholder="sk-..."
-              className="w-full px-4 py-3 bg-[#F9FAFB] border border-[#E5E9F0] rounded-xl text-sm font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED]"
-            />
+          <div className="text-sm font-bold text-[#111827] mb-1">AI Settings</div>
+          <div className="text-[11px] text-[#6B7280] font-semibold">Manage API keys and model routing</div>
+          <div className="flex items-center gap-1 mt-3 text-[#7C3AED] text-[11px] font-bold">
+            Manage <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
           </div>
-
-          <button 
-            type="submit"
-            disabled={saving || !keyValue}
-            className="py-3 px-6 bg-[#111827] hover:bg-[#1F2937] text-white text-sm font-bold rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
-          >
-            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            Add Key
-          </button>
-        </form>
-
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold text-[#9CA3AF] uppercase tracking-wider mb-2">Active Keys</h3>
-          {keys.length === 0 ? (
-            <p className="text-sm font-semibold text-[#6B7280]">No keys configured. AI services will fail.</p>
-          ) : (
-            keys.map((key, idx) => (
-              <div key={key._id} className="flex items-center justify-between p-4 rounded-xl border border-[#E5E9F0] bg-[#FAFBFC]">
-                <div className="flex flex-col">
-                  <span className="text-sm font-bold text-[#111827] capitalize">{key.provider}</span>
-                  <span className="text-xs font-semibold text-[#6B7280]">Added {new Date(key.createdAt).toLocaleDateString()}</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-md text-[10px] font-extrabold uppercase">
-                    Active
-                  </span>
-                  <button 
-                    onClick={() => handleDeleteKey(key._id)}
-                    className="p-2 text-[#9CA3AF] hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        </button>
+        <button
+          onClick={() => onNav('users')}
+          className="bg-white border border-[#E5E9F0] rounded-2xl p-5 shadow-sm text-left hover:border-[#7C3AED]/30 hover:shadow-md transition-all group cursor-pointer"
+        >
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center mb-3">
+            <Users className="w-5 h-5 text-blue-600" />
+          </div>
+          <div className="text-sm font-bold text-[#111827] mb-1">User Management</div>
+          <div className="text-[11px] text-[#6B7280] font-semibold">Manage roles, permissions, and accounts</div>
+          <div className="flex items-center gap-1 mt-3 text-[#7C3AED] text-[11px] font-bold">
+            Manage <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+          </div>
+        </button>
       </div>
+    </div>
+  );
+}
+
+// ─── Main Admin Page ──────────────────────────────────────────────────────────
+
+export default function Admin() {
+  const [activeSection, setActiveSection] = useState('overview');
+  const [health, setHealth] = useState(null);
+  const [userCount, setUserCount] = useState(null);
+  const [keyCount, setKeyCount] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadOverview = async () => {
+      try {
+        const [healthData, usersData, keysData] = await Promise.allSettled([
+          adminService.getProviderHealth(),
+          adminService.listUsers(),
+          adminService.listApiKeys(),
+        ]);
+        if (healthData.status === 'fulfilled') setHealth(healthData.value);
+        if (usersData.status === 'fulfilled') setUserCount(usersData.value.length);
+        if (keysData.status === 'fulfilled') setKeyCount(keysData.value.length);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadOverview();
+  }, []);
+
+  return (
+    <div className="space-y-6 pb-12 text-left">
+      {/* Header */}
+      <div>
+        <h1 className="text-[28px] font-bold text-[#111827] tracking-tight leading-tight flex items-center gap-2.5">
+          <Shield className="w-7 h-7 text-[#7C3AED]" />
+          Admin Panel
+        </h1>
+        <p className="text-sm text-[#4B5563] mt-1 font-semibold">
+          System management · Admin access only
+        </p>
+      </div>
+
+      {/* Sub-nav */}
+      <div className="flex items-center gap-1 bg-[#F3F4F6] rounded-xl p-1 w-fit">
+        {NAV_ITEMS.map(item => {
+          const Icon = item.icon;
+          const active = activeSection === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveSection(item.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                active
+                  ? 'bg-white text-[#111827] shadow-sm'
+                  : 'text-[#6B7280] hover:text-[#374151]'
+              }`}
+            >
+              <Icon className={`w-3.5 h-3.5 ${active ? 'text-[#7C3AED]' : ''}`} />
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Content */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeSection}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.15 }}
+        >
+          {activeSection === 'overview' && (
+            loading ? (
+              <div className="flex items-center gap-3 text-[#7C3AED] py-10">
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                <span className="text-sm font-bold">Loading overview…</span>
+              </div>
+            ) : (
+              <OverviewPanel
+                health={health}
+                userCount={userCount}
+                keyCount={keyCount}
+                onNav={setActiveSection}
+              />
+            )
+          )}
+          {activeSection === 'ai-settings' && <AdminSettings />}
+          {activeSection === 'users' && <AdminUsers />}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

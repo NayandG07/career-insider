@@ -59,7 +59,9 @@ export default function Roadmap() {
   useEffect(() => {
     if (selectedRoles.length > 0) {
       setIsRerouting(true);
-      fetchRoadmap(selectedRoles).finally(() => setIsRerouting(false));
+      fetchRoadmap(selectedRoles)
+        .catch(err => console.error('Roadmap fetch failed:', err))
+        .finally(() => setIsRerouting(false));
     }
   }, [selectedRoles]);
 
@@ -178,7 +180,7 @@ export default function Roadmap() {
   const handleSkillSliderChange = (skillIndex, value) => {
     if (!consolidatedPath) return;
     
-    const updatedSkills = [...consolidatedPath.skills];
+    const updatedSkills = [...(consolidatedPath.skills || [])];
     const skillName = updatedSkills[skillIndex].subject;
     
     // Sync back to global AppContext skills data
@@ -360,7 +362,7 @@ export default function Roadmap() {
       </div>
 
       {/* RENDER DYNAMIC PATH CONTENT */}
-      {selectedRoles.length === 0 || !consolidatedPath ? (
+      {selectedRoles.length === 0 || (!consolidatedPath && !isRerouting) ? (
         /* Empty State Prompting User to Select Filters */
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
@@ -375,7 +377,24 @@ export default function Roadmap() {
             <p className="text-xs text-[#6B7280] font-semibold leading-relaxed">
               {selectedRoles.length === 0 
                 ? "No target roles selected. Please check one or more boxes in the target filters dashboard above to plot your consolidated developer trajectory."
-                : "Calculating route via AI backend... Please wait."}
+                : "Select a role above to generate your personalized roadmap."}
+            </p>
+          </div>
+        </motion.div>
+      ) : isRerouting && !consolidatedPath ? (
+        /* Loading State while AI generates roadmap */
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white border border-dashed border-[#E5E9F0] rounded-3xl p-16 text-center space-y-4 shadow-sm"
+        >
+          <div className="w-16 h-16 bg-[#EEF2FF] rounded-full flex items-center justify-center mx-auto text-[#6366F1]">
+            <Compass className="w-8 h-8 animate-spin" style={{ animationDuration: '3s' }} />
+          </div>
+          <div className="max-w-md mx-auto space-y-2">
+            <h3 className="text-base font-extrabold text-[#111827]">Calculating Route…</h3>
+            <p className="text-xs text-[#6B7280] font-semibold leading-relaxed">
+              AI is generating your personalized career roadmap. This may take 10–20 seconds.
             </p>
           </div>
         </motion.div>
@@ -534,7 +553,7 @@ export default function Roadmap() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-              {companies.map((comp) => {
+              {(companies || []).map((comp) => {
                 const isSelected = selectedCompany?.name === comp.name;
                 return (
                   <motion.button
@@ -720,7 +739,7 @@ export default function Roadmap() {
                     {/* Recharts chart */}
                     <div className="md:col-span-6 h-64 flex items-center justify-center">
                       <ResponsiveContainer width="100%" height="100%">
-                        <RadarChart cx="50%" cy="50%" outerRadius="75%" data={consolidatedPath.skills}>
+                        <RadarChart cx="50%" cy="50%" outerRadius="75%" data={consolidatedPath.skills || []}>
                           <PolarGrid stroke="#F1F5F9" />
                           <PolarAngleAxis dataKey="subject" tick={{ fill: '#4B5563', fontSize: 10, fontWeight: 700 }} />
                           <Radar name="Current Mapped" dataKey="current" stroke="#6366F1" fill="#6366F1" fillOpacity={0.15} strokeWidth={2} />
@@ -732,7 +751,7 @@ export default function Roadmap() {
 
                     {/* Range controls */}
                     <div className="md:col-span-6 space-y-4">
-                      {consolidatedPath.skills.map((s, idx) => (
+                      {(consolidatedPath.skills || []).map((s, idx) => (
                         <div key={idx} className="space-y-1.5 text-xs">
                           <div className="flex justify-between font-bold text-slate-700">
                             <span>{s.subject}</span>

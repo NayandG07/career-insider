@@ -9,8 +9,7 @@ const userSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      unique: true,
-      sparse: true, // allows null for OAuth-only users who haven't provided email
+      index: { unique: true, sparse: true }, // sparse allows null for OAuth-only users
       lowercase: true,
       trim: true,
     },

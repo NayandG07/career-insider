@@ -25,11 +25,27 @@ import AdminActivity from './pages/AdminActivity';
 import AdminSettings from './pages/AdminSettings';
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { ShieldOff } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
 import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/Toast';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
+
+/** Shown when a non-admin user tries to access an admin-only route */
+function AccessDenied() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
+        <ShieldOff className="w-8 h-8 text-red-400" />
+      </div>
+      <h2 className="text-xl font-bold text-[#111827]">Access Denied</h2>
+      <p className="text-sm text-[#6B7280] font-semibold max-w-xs">
+        This page is restricted to admin users only. Contact your administrator if you believe this is a mistake.
+      </p>
+    </div>
+  );
+}
 
 // ─── Hash ↔ authView mapping ───────────────────────────────────────────────────
 // Maps URL hash fragments to authView state values so the public route survives
@@ -111,7 +127,7 @@ function MainAppContent() {
       case 'settings':
         return <Settings />;
       case 'admin':
-        return <Admin />;
+        return isAdmin ? <Admin /> : <AccessDenied />;
 
       // Fallback / Legacy User & Admin Views
       case 'sources':
@@ -121,19 +137,19 @@ function MainAppContent() {
       case 'recommendations':
         return <Recommendations />;
       case 'admin-dashboard':
-        return <AdminDashboard />;
+        return isAdmin ? <AdminDashboard /> : <AccessDenied />;
       case 'admin-users':
-        return <AdminUsers />;
+        return isAdmin ? <AdminUsers /> : <AccessDenied />;
       case 'admin-integrations':
-        return <AdminIntegrations />;
+        return isAdmin ? <AdminIntegrations /> : <AccessDenied />;
       case 'admin-companies':
-        return <AdminCompanies />;
+        return isAdmin ? <AdminCompanies /> : <AccessDenied />;
       case 'admin-skills':
-        return <AdminSkills />;
+        return isAdmin ? <AdminSkills /> : <AccessDenied />;
       case 'admin-activity':
-        return <AdminActivity />;
+        return isAdmin ? <AdminActivity /> : <AccessDenied />;
       case 'admin-settings':
-        return <AdminSettings />;
+        return isAdmin ? <AdminSettings /> : <AccessDenied />;
 
       default:
         return <Dashboard setActivePage={setActivePage} />;

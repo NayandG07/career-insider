@@ -130,17 +130,23 @@ export const addApiKey = async (req, res) => {
 
 /**
  * PUT /api/admin/api-keys/:keyId
- * Update a key's label, active status, or status flag.
+ * Update a key's label, active status, status flag, or the key value itself (re-encrypts).
  */
 export const updateApiKey = async (req, res) => {
   try {
     const { keyId } = req.params;
-    const { label, isActive, status } = req.body;
+    const { label, isActive, status, key } = req.body;
 
     const updates = {};
     if (label !== undefined) updates.label = label;
     if (isActive !== undefined) updates.isActive = isActive;
     if (status !== undefined) updates.status = status;
+
+    // If a new raw key value is provided, re-encrypt and store it
+    if (key && key.trim()) {
+      updates.encryptedKey = encrypt(key.trim());
+      updates.status = 'ok'; // Reset status when key is replaced
+    }
 
     const apiKey = await ApiKey.findByIdAndUpdate(keyId, updates, {
       new: true,
@@ -157,6 +163,9 @@ export const updateApiKey = async (req, res) => {
       label: apiKey.label,
       isActive: apiKey.isActive,
       status: apiKey.status,
+      keyFingerprint: apiKey.encryptedKey
+        ? `${apiKey.encryptedKey.slice(0, 8)}...${apiKey.encryptedKey.slice(-8)}`
+        : null,
     });
   } catch (error) {
     console.error('Update API key error:', error);

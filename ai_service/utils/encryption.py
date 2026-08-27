@@ -8,10 +8,18 @@ def decrypt_api_key(encrypted_hex: str) -> str:
     """
     Decrypts an API key that was encrypted with Node.js crypto AES-256-CBC.
     The IV is prepended to the ciphertext and the whole thing is hex encoded.
+    ENCRYPTION_SECRET is a 64-char hex string representing 32 bytes.
     """
-    secret = os.getenv("ENCRYPTION_SECRET", "").encode('utf-8')
+    secret_hex = os.getenv("ENCRYPTION_SECRET", "")
+    try:
+        # The secret is a 64-character hex string → unhexlify gives 32 bytes for AES-256
+        secret = binascii.unhexlify(secret_hex)
+    except Exception:
+        # Fallback: use raw bytes (legacy)
+        secret = secret_hex.encode('utf-8')
+    
     if len(secret) != 32:
-        raise ValueError("ENCRYPTION_SECRET must be exactly 32 bytes long")
+        raise ValueError(f"ENCRYPTION_SECRET must decode to exactly 32 bytes, got {len(secret)}")
 
     try:
         # Convert hex to bytes

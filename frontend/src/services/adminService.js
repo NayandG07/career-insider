@@ -21,7 +21,12 @@ export const adminService = {
     return res.data;
   },
   updateApiKey: async (keyId, data) => {
+    // data can include: { label, isActive, status, key (new raw value to re-encrypt) }
     const res = await api.put(`/admin/api-keys/${keyId}`, data);
+    return res.data;
+  },
+  toggleApiKey: async (keyId, isActive) => {
+    const res = await api.put(`/admin/api-keys/${keyId}`, { isActive });
     return res.data;
   },
   deleteApiKey: async (keyId) => {
