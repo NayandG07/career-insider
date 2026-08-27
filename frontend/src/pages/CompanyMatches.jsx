@@ -199,7 +199,8 @@ export default function CompanyMatches() {
       )}
 
       {/* Layout Columns — only shown when real data exists */}
-      {hasData && <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {hasData && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* Left Column: Company Match Cards Grid */}
         <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-5 h-fit">
@@ -338,8 +339,7 @@ export default function CompanyMatches() {
         )}
 
       </div>
-
-      </div>}
+      )}
 
     </div>
   );
