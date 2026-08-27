@@ -10,7 +10,7 @@ const telemetrySchema = new mongoose.Schema(
     },
     source: {
       type: String,
-      enum: ['github', 'leetcode', 'codeforces', 'codechef', 'kaggle'],
+      enum: ['github', 'leetcode', 'codeforces'],
       required: true,
     },
     data: {

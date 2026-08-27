@@ -23,7 +23,6 @@ import {
 import { useApp } from '../context/AppContext';
 import { codeforcesService } from '../services/codeforcesService';
 import { leetcodeService } from '../services/leetcodeService';
-import { kaggleService } from '../services/kaggleService';
 import { githubService } from '../services/githubService';
 import { projectService } from '../services/projectService';
 
@@ -47,7 +46,6 @@ export default function Profile({ setActivePage }) {
   // High-level source summaries
   const [cfSummary, setCfSummary] = useState(null);
   const [lcSummary, setLcSummary] = useState(null);
-  const [kgSummary, setKgSummary] = useState(null);
   const [ghSummary, setGhSummary] = useState(null);
   const [projects, setProjects] = useState([]);
 
@@ -69,13 +67,6 @@ export default function Profile({ setActivePage }) {
         .catch(() => {});
     }
 
-    const kgUser = userData?.connectedSources?.kaggle?.username || (typeof userData?.connectedSources?.kaggle === 'string' ? userData.connectedSources.kaggle : '');
-    if (kgUser) {
-      kaggleService.getProfile()
-        .then(res => { if (res?.connected && res.data) setKgSummary(res.data); })
-        .catch(() => {});
-    }
-
     const ghUser = userData?.connectedSources?.github || userData?.auth?.github?.username;
     if (ghUser) {
       if (telemetry?.sources?.github?.data) {
@@ -91,9 +82,6 @@ export default function Profile({ setActivePage }) {
   const ghHandle = userData?.connectedSources?.github || userData?.auth?.github?.username || '';
   const lcHandle = userData?.connectedSources?.leetcode || '';
   const cfHandle = userData?.connectedSources?.codeforces || '';
-  const kgHandle = typeof userData?.connectedSources?.kaggle === 'object'
-    ? userData?.connectedSources?.kaggle?.username
-    : (userData?.connectedSources?.kaggle || '');
 
   const sourcesList = [
     {
@@ -124,15 +112,6 @@ export default function Profile({ setActivePage }) {
       lastSynced: telemetry?.sources?.codeforces?.fetchedAt || userData?.lastSyncedAt,
     },
     {
-      key: 'kaggle',
-      name: 'Kaggle',
-      icon: Terminal,
-      connected: !!kgHandle,
-      handle: kgHandle ? `@${kgHandle}` : 'Not connected',
-      stat: kgSummary?.datasets?.count || kgSummary?.notebooks?.count ? `${(kgSummary.datasets?.count || 0) + (kgSummary.notebooks?.count || 0)} Artifacts` : (kgHandle ? 'Connected' : 'Not connected'),
-      lastSynced: telemetry?.sources?.kaggle?.fetchedAt || userData?.lastSyncedAt,
-    },
-    {
       key: 'resume',
       name: 'Resume',
       icon: FileText,
@@ -160,7 +139,7 @@ export default function Profile({ setActivePage }) {
       role: "Full-Stack Developer",
       company: "CareerOS Project Team",
       period: "2024 - Present",
-      desc: "Architected the unified developer profile platform aggregating external telemetry across GitHub, Codeforces, LeetCode, and Kaggle."
+      desc: "Architected the unified developer profile platform aggregating external telemetry across GitHub, Codeforces, and LeetCode."
     },
     {
       role: "Software Engineering Intern",

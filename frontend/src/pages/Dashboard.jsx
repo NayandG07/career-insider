@@ -5,7 +5,6 @@ import { telemetryService } from '../services/telemetryService';
 import { projectService } from '../services/projectService';
 import { codeforcesService } from '../services/codeforcesService';
 import { leetcodeService } from '../services/leetcodeService';
-import { kaggleService } from '../services/kaggleService';
 import { githubService } from '../services/githubService';
 import LeetCodeHeatmap from '../components/LeetCodeHeatmap';
 import { 
@@ -63,34 +62,30 @@ export default function Dashboard({ setActivePage }) {
   const [projects, setProjects] = useState([]);
   const [cfData, setCfData] = useState(null);
   const [lcData, setLcData] = useState(null);
-  const [kgData, setKgData] = useState(null);
   const [ghData, setGhData] = useState(null);
 
   // Scalable Languages View More State
   const [showAllLanguages, setShowAllLanguages] = useState(false);
 
-  // Initial Load
+  // Initial Load using telemetry cache or platform service
   useEffect(() => {
     projectService.getAll()
       .then(res => { if (Array.isArray(res)) setProjects(res); })
       .catch(() => {});
 
-    if (userData?.connectedSources?.codeforces) {
+    if (telemetry?.sources?.codeforces?.data) {
+      setCfData(telemetry.sources.codeforces.data);
+    } else if (userData?.connectedSources?.codeforces) {
       codeforcesService.getProfile()
         .then(res => { if (res?.connected && res.data) setCfData(res.data); })
         .catch(() => {});
     }
 
-    if (userData?.connectedSources?.leetcode) {
+    if (telemetry?.sources?.leetcode?.data) {
+      setLcData(telemetry.sources.leetcode.data);
+    } else if (userData?.connectedSources?.leetcode) {
       leetcodeService.getProfile()
         .then(res => { if (res?.connected && res.data) setLcData(res.data); })
-        .catch(() => {});
-    }
-
-    const kgUser = userData?.connectedSources?.kaggle?.username || (typeof userData?.connectedSources?.kaggle === 'string' ? userData.connectedSources.kaggle : '');
-    if (kgUser) {
-      kaggleService.getProfile()
-        .then(res => { if (res?.connected && res.data) setKgData(res.data); })
         .catch(() => {});
     }
 
@@ -98,10 +93,11 @@ export default function Dashboard({ setActivePage }) {
     if (ghUser) {
       if (telemetry?.sources?.github?.data) {
         setGhData(telemetry.sources.github.data);
+      } else {
+        githubService.getProfile?.()
+          .then(res => { if (res?.data) setGhData(res.data); })
+          .catch(() => {});
       }
-      githubService.getProfile?.()
-        .then(res => { if (res?.data) setGhData(res.data); })
-        .catch(() => {});
     }
   }, [userData, telemetry]);
 
@@ -119,9 +115,6 @@ export default function Dashboard({ setActivePage }) {
       if (userData?.connectedSources?.codeforces) {
         codeforcesService.getProfile().then(r => r.data && setCfData(r.data)).catch(() => {});
       }
-      if (userData?.connectedSources?.kaggle) {
-        kaggleService.getProfile().then(r => r.data && setKgData(r.data)).catch(() => {});
-      }
 
       showToast?.('All connected platforms synchronized successfully!', 'success');
     } catch (err) {
@@ -136,15 +129,11 @@ export default function Dashboard({ setActivePage }) {
   const ghHandle = userData?.connectedSources?.github || userData?.auth?.github?.username || '';
   const lcHandle = userData?.connectedSources?.leetcode || '';
   const cfHandle = userData?.connectedSources?.codeforces || '';
-  const kgHandle = typeof userData?.connectedSources?.kaggle === 'object'
-    ? userData?.connectedSources?.kaggle?.username
-    : (userData?.connectedSources?.kaggle || '');
 
   const sourcesList = [
     { key: 'github', name: 'GitHub', connected: !!ghHandle, handle: ghHandle, icon: Github, lastSynced: telemetry?.sources?.github?.fetchedAt || userData?.lastSyncedAt },
     { key: 'leetcode', name: 'LeetCode', connected: !!lcHandle, handle: lcHandle, icon: Code, lastSynced: telemetry?.sources?.leetcode?.fetchedAt || userData?.lastSyncedAt },
     { key: 'codeforces', name: 'Codeforces', connected: !!cfHandle, handle: cfHandle, icon: Award, lastSynced: telemetry?.sources?.codeforces?.fetchedAt || userData?.lastSyncedAt },
-    { key: 'kaggle', name: 'Kaggle', connected: !!kgHandle, handle: kgHandle, icon: Terminal, lastSynced: telemetry?.sources?.kaggle?.fetchedAt || userData?.lastSyncedAt },
   ];
 
   const activeSourcesCount = sourcesList.filter(s => s.connected).length;
@@ -529,7 +518,7 @@ export default function Dashboard({ setActivePage }) {
 
       </div>
 
-      {/* 4. ROW 2: GitHub Activity & Kaggle Machine Learning Snapshot */}
+      {/* 4. ROW 2: GitHub Activity & Showcase Projects Snapshot */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* GitHub Activity Snapshot (7 Cols) */}
@@ -608,74 +597,74 @@ export default function Dashboard({ setActivePage }) {
           )}
         </div>
 
-        {/* Kaggle Machine Learning Snapshot (5 Cols) */}
+        {/* Showcase Projects Snapshot (5 Cols) */}
         <div className="lg:col-span-5 bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-3">
             <div className="flex items-center gap-2">
-              <Terminal className="w-5 h-5 text-sky-500" />
+              <FolderGit2 className="w-5 h-5 text-[#7C3AED]" />
               <div>
-                <h2 className="text-sm font-bold text-[#111827]">Kaggle ML Snapshot</h2>
+                <h2 className="text-sm font-bold text-[#111827]">Showcase Projects</h2>
                 <span className="text-[11px] text-[#6B7280] font-semibold">
-                  {kgHandle ? `@${kgHandle}` : 'Account not connected'}
+                  {projects.length} verified project{projects.length !== 1 ? 's' : ''}
                 </span>
               </div>
             </div>
-            {kgHandle && (
-              <a
-                href={kgData?.profileUrl || `https://www.kaggle.com/${kgHandle}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs font-bold text-sky-600 hover:underline inline-flex items-center gap-1"
+            {setActivePage && (
+              <button
+                onClick={() => setActivePage('projects')}
+                className="text-xs font-bold text-[#7C3AED] hover:underline inline-flex items-center gap-1 cursor-pointer"
               >
-                <span>View Kaggle</span>
+                <span>View All</span>
                 <ExternalLink className="w-3.5 h-3.5" />
-              </a>
+              </button>
             )}
           </div>
 
-          {kgData ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+          {projects.length > 0 ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Notebooks</span>
-                  <span className="text-xl font-black text-[#111827] mt-0.5 block">{kgData.notebooks?.count || 0}</span>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Showcase Items</span>
+                  <span className="text-xl font-black text-[#111827] mt-0.5 block">{projects.length}</span>
                 </div>
                 <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Datasets</span>
-                  <span className="text-xl font-black text-sky-600 mt-0.5 block">{kgData.datasets?.count || 0}</span>
-                </div>
-                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Tier</span>
-                  <span className="text-xs font-black text-amber-700 capitalize mt-1 block">{kgData.tier || 'Active'}</span>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Featured Stacks</span>
+                  <span className="text-xl font-black text-[#7C3AED] mt-0.5 block">
+                    {new Set(projects.flatMap(p => p.technologies || [])).size}
+                  </span>
                 </div>
               </div>
 
-              {kgData.datasets?.items?.length > 0 && (
-                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3.5 space-y-1.5">
-                  <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">
-                    Recent Public Datasets
-                  </span>
-                  {kgData.datasets.items.slice(0, 3).map((ds, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-xs font-semibold text-gray-800">
-                      <span className="truncate pr-2">{ds.title}</span>
-                      <span className="text-[10px] font-bold text-emerald-600 shrink-0">{ds.totalDownloads} dl</span>
+              <div className="space-y-2">
+                {projects.slice(0, 3).map((p, idx) => (
+                  <div key={idx} className="p-3 bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl flex items-center justify-between text-xs">
+                    <div>
+                      <h4 className="font-bold text-[#111827]">{p.title}</h4>
+                      <p className="text-[10px] text-gray-500 font-semibold truncate max-w-[200px]">
+                        {(p.technologies || []).slice(0, 3).join(', ')}
+                      </p>
                     </div>
-                  ))}
-                </div>
-              )}
+                    {p.repoUrl && (
+                      <a href={p.repoUrl} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-gray-700">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           ) : (
             <div className="p-8 text-center bg-[#FAFBFC] border border-dashed border-[#E5E9F0] rounded-2xl space-y-3">
-              <Terminal className="w-8 h-8 text-gray-300 mx-auto" />
+              <FolderGit2 className="w-8 h-8 text-gray-300 mx-auto" />
               <p className="text-xs text-gray-500 font-semibold">
-                Kaggle account is not connected. Connect Kaggle to index public machine learning benchmarks.
+                No projects imported yet. Add custom projects or import repositories from GitHub.
               </p>
               {setActivePage && (
                 <button
-                  onClick={() => setActivePage('settings')}
+                  onClick={() => setActivePage('projects')}
                   className="px-3.5 py-1.5 bg-[#7C3AED] text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-[#6D28D9] transition-all"
                 >
-                  Connect Kaggle
+                  Import Projects
                 </button>
               )}
             </div>

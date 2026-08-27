@@ -50,12 +50,6 @@ const userSchema = new mongoose.Schema(
       google: {
         id: String,
       },
-      kaggle: {
-        id: String,
-        username: String,
-        accessToken: { type: String, select: false },
-        refreshToken: { type: String, select: false },
-      },
     },
 
     // ─── Connected platform handles ───────────────────
@@ -63,11 +57,6 @@ const userSchema = new mongoose.Schema(
       github: { type: String, default: '' },
       leetcode: { type: String, default: '' },
       codeforces: { type: String, default: '' },
-      codechef: { type: String, default: '' },
-      kaggle: {
-        username: { type: String, default: '' },
-        apiKey_encrypted: { type: String, default: '' },
-      },
     },
 
     // ─── Aggregated scores ────────────────────────────

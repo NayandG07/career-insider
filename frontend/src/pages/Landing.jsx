@@ -7,7 +7,8 @@ import {
   Github, 
   Database, 
   Terminal, 
-  Globe 
+  Globe,
+  FolderGit2
 } from 'lucide-react';
 
 function Typewriter({ phrases, speed = 80, delay = 2000 }) {
@@ -159,7 +160,7 @@ export default function Landing({ setAuthView }) {
                 variants={itemVariants}
                 className="text-base md:text-lg text-[#4B5563] font-medium leading-relaxed max-w-2xl mx-auto"
               >
-                Everything you have built, solved, learned and published should be visible together. Connect your GitHub, LeetCode, Codeforces, Kaggle, and resume into a single, cohesive developer profile.
+                Everything you have built, solved, learned and published should be visible together. Connect your GitHub, LeetCode, Codeforces, and resume into a single, cohesive developer profile.
               </motion.p>
 
               <motion.div 
@@ -208,7 +209,7 @@ export default function Landing({ setAuthView }) {
                 Your developer footprints are <span className="text-red-500">scattered</span> everywhere.
               </h2>
               <p className="text-base text-[#4B5563] leading-relaxed font-medium">
-                Recruiters and hiring managers have to open 6 different browser tabs to evaluate your capabilities. Your commits are on GitHub, algorithmic ranks are on LeetCode, ML competitions on Kaggle, and your projects are on a hosted domain. It is impossible to present a unified picture of your expertise.
+                Recruiters and hiring managers have to open multiple different browser tabs to evaluate your capabilities. Your commits are on GitHub, algorithmic ranks are on LeetCode, contest ratings on Codeforces, and your projects are scattered. It is impossible to present a unified picture of your expertise.
               </p>
               
               <div className="space-y-4 pt-4 border-t border-[#E5E9F0]">
@@ -290,14 +291,14 @@ export default function Landing({ setAuthView }) {
                     </div>
                   </div>
 
-                  {/* Card 3: Kaggle */}
+                  {/* Card 3: Codeforces */}
                   <div className="border border-red-100 bg-red-50/30 rounded-2xl p-4 relative group hover:border-red-200 transition-all">
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-sky-400 flex items-center justify-center text-white">
-                          <Database className="w-4.5 h-4.5" />
+                        <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+                          <Code className="w-4.5 h-4.5" />
                         </div>
-                        <span className="text-xs font-bold text-[#374151]">Kaggle</span>
+                        <span className="text-xs font-bold text-[#374151]">Codeforces</span>
                       </div>
                       <span className="px-2 py-0.5 text-[8px] font-bold rounded-full bg-red-100 text-red-600">Tab #3</span>
                     </div>
@@ -306,7 +307,7 @@ export default function Landing({ setAuthView }) {
                       <div className="h-2 w-1/2 bg-red-200/50 rounded"></div>
                       <div className="text-[10px] text-red-500 font-bold mt-2 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                        2 Notebooks (Hidden from managers)
+                        Contest Rating (Isolated stats)
                       </div>
                     </div>
                   </div>
@@ -363,7 +364,7 @@ export default function Landing({ setAuthView }) {
               { 
                 step: '01', 
                 title: 'Connect Accounts', 
-                desc: 'Securely link handles for GitHub, LeetCode, Codeforces, and Kaggle.',
+                desc: 'Securely link handles for GitHub, LeetCode, and Codeforces.',
                 color: 'from-purple-500 to-indigo-500',
                 shadowColor: 'rgba(124, 58, 237, 0.15)'
               },
@@ -441,11 +442,11 @@ export default function Landing({ setAuthView }) {
                 stats: 'Crawler Sync' 
               },
               { 
-                name: 'Kaggle Notebooks', 
-                icon: Database, 
-                color: 'bg-sky-400 text-white',
-                desc: 'Normalize notebooks, dataset contributions, and competition rankings.',
-                stats: 'GraphQL API' 
+                name: 'Showcase Projects', 
+                icon: FolderGit2, 
+                color: 'bg-emerald-600 text-white',
+                desc: 'Import and showcase your top full-stack web applications and repositories.',
+                stats: 'Unified Hub' 
               }
             ].map((src, idx) => {
               const Icon = src.icon;

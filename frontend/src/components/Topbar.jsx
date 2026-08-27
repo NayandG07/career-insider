@@ -32,7 +32,7 @@ export default function Topbar({ activePage, setActivePage, onMenuToggle }) {
     },
     {
       name: "Connected Sources & Settings",
-      meta: "GitHub, LeetCode, Codeforces, Kaggle",
+      meta: "GitHub, LeetCode, Codeforces",
       onClick: () => { setActivePage?.('settings'); setSearchOpen(false); },
     },
   ];

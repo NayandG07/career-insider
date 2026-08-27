@@ -6,6 +6,11 @@ export const projectService = {
     return res.data;
   },
 
+  getProjects: async () => {
+    const res = await api.get('/projects');
+    return res.data;
+  },
+
   create: async (data) => {
     const res = await api.post('/projects', data);
     return res.data;

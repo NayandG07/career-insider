@@ -27,7 +27,6 @@ import { userService } from '../services/userService';
 import { githubService } from '../services/githubService';
 import { codeforcesService } from '../services/codeforcesService';
 import { leetcodeService } from '../services/leetcodeService';
-import { kaggleService } from '../services/kaggleService';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import GithubRepoPickerModal from '../components/GithubRepoPickerModal';
@@ -68,11 +67,6 @@ export default function Settings() {
   const lcHandle = userData?.connectedSources?.leetcode || '';
   const isLcConnected = !!lcHandle;
 
-  // Kaggle Profile State
-  const [kgProfile, setKgProfile] = useState(null);
-  const kgUsername = userData?.connectedSources?.kaggle?.username || (typeof userData?.connectedSources?.kaggle === 'string' ? userData.connectedSources.kaggle : '');
-  const isKgConnected = !!kgUsername;
-
   // Load Codeforces Profile data if connected
   useEffect(() => {
     if (isCfConnected) {
@@ -103,23 +97,8 @@ export default function Settings() {
     }
   }, [isLcConnected]);
 
-  // Load Kaggle Profile data if connected
-  useEffect(() => {
-    if (isKgConnected) {
-      kaggleService.getProfile()
-        .then(res => {
-          if (res.connected && res.data) {
-            setKgProfile(res.data);
-          }
-        })
-        .catch(() => {});
-    } else {
-      setKgProfile(null);
-    }
-  }, [isKgConnected]);
-
-  // Platform Handles State (LeetCode, Codeforces, Kaggle, CodeChef)
-  const [editingPlatform, setEditingPlatform] = useState(null); // 'leetcode' | 'codeforces' | 'kaggle' | 'codechef'
+  // Platform Handles State (LeetCode, Codeforces)
+  const [editingPlatform, setEditingPlatform] = useState(null); // 'leetcode' | 'codeforces'
   const [platformInput, setPlatformInput] = useState('');
   const [platformSaving, setPlatformSaving] = useState(false);
 
@@ -282,7 +261,7 @@ export default function Settings() {
     });
   };
 
-  // Handle Other Platform Handles Connect / Disconnect (LeetCode, Kaggle, CodeChef)
+  // Handle Platform Handles Connect / Disconnect (LeetCode, Codeforces)
   const handleSavePlatformHandle = async (key) => {
     if (key === 'codeforces') {
       return handleConnectCodeforces();
@@ -300,16 +279,6 @@ export default function Settings() {
         setEditingPlatform(null);
         setPlatformInput('');
         showToast?.(`LeetCode connected as @${cleanHandle}`, 'success');
-        return;
-      }
-
-      if (key === 'kaggle') {
-        const res = await kaggleService.connect(cleanHandle);
-        setKgProfile(res.data);
-        await refreshUser?.();
-        setEditingPlatform(null);
-        setPlatformInput('');
-        showToast?.(`Kaggle connected as @${cleanHandle}`, 'success');
         return;
       }
 
@@ -345,14 +314,6 @@ export default function Settings() {
             setLcProfile(null);
             await refreshUser?.();
             showToast?.('LeetCode disconnected.', 'info');
-            return;
-          }
-
-          if (key === 'kaggle') {
-            await kaggleService.disconnect();
-            setKgProfile(null);
-            await refreshUser?.();
-            showToast?.('Kaggle disconnected.', 'info');
             return;
           }
 
@@ -414,6 +375,7 @@ export default function Settings() {
       const exportPayload = {
         user: userData,
         codeforces: cfProfile,
+        leetcode: lcProfile,
         exportedAt: new Date().toISOString(),
       };
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportPayload, null, 2));
@@ -429,10 +391,6 @@ export default function Settings() {
       showToast?.('Failed to export data.', 'error');
     }
   };
-
-  const kaggleHandle = typeof userData?.connectedSources?.kaggle === 'object' 
-    ? userData?.connectedSources?.kaggle?.username 
-    : (userData?.connectedSources?.kaggle || '');
 
   const platforms = [
     {
@@ -466,28 +424,6 @@ export default function Settings() {
       icon: Code,
       isConnected: !!userData?.connectedSources?.leetcode,
       handle: userData?.connectedSources?.leetcode || '',
-      isOAuth: false,
-    },
-    {
-      key: 'kaggle',
-      name: "Kaggle Competitions & Datasets",
-      desc: kaggleHandle 
-        ? `Connected as @${kaggleHandle}` 
-        : "Indexes machine learning models, competition rankings, and notebook benchmarks.",
-      icon: Terminal,
-      isConnected: !!kaggleHandle,
-      handle: kaggleHandle,
-      isOAuth: false,
-    },
-    {
-      key: 'codechef',
-      name: "CodeChef Division & Stars",
-      desc: userData?.connectedSources?.codechef 
-        ? `Connected as @${userData.connectedSources.codechef}` 
-        : "Syncs star rating, global rank, and contest solving metrics.",
-      icon: Award,
-      isConnected: !!userData?.connectedSources?.codechef,
-      handle: userData?.connectedSources?.codechef || '',
       isOAuth: false,
     }
   ];
@@ -764,24 +700,6 @@ export default function Settings() {
                         )}
                       </div>
                     )}
-
-                    {/* Rich Kaggle Stats Row */}
-                    {plat.key === 'kaggle' && isKgConnected && kgProfile && (
-                      <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] font-bold">
-                        <span className="px-2 py-0.5 bg-sky-50 text-sky-700 rounded-md border border-sky-100">
-                          Notebooks: {kgProfile.notebooks?.count || 0}
-                        </span>
-                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md border border-blue-100">
-                          Datasets: {kgProfile.datasets?.count || 0}
-                        </span>
-                        <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded-md border border-purple-100">
-                          Competitions: {kgProfile.competitions?.count || 0}
-                        </span>
-                        <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-md border border-amber-100 capitalize">
-                          Tier: {kgProfile.tier || 'Active Member'}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -814,28 +732,28 @@ export default function Settings() {
                       </button>
                     )
                   ) : (
-                    /* Handle-based Platforms (Codeforces, LeetCode, Kaggle, CodeChef) */
+                    /* Handle-based Platforms (Codeforces, LeetCode) */
                     isEditing ? (
-                      <div className="flex items-center gap-1.5">
-                        <div className="relative">
-                          <span className="absolute left-2.5 top-1.5 text-[11px] font-bold text-gray-400">@</span>
+                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                        <div className="relative flex-1 sm:flex-none">
+                          <span className="absolute left-3 top-2 text-xs font-bold text-gray-400">@</span>
                           <input
                             type="text"
                             value={platformInput}
                             onChange={(e) => setPlatformInput(e.target.value)}
-                            placeholder={plat.key === 'codeforces' ? 'e.g. tourist' : 'username'}
-                            className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-lg pl-6 pr-2.5 py-1 text-xs font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/10 focus:border-[#7C3AED] w-32"
+                            placeholder={plat.key === 'codeforces' ? 'Codeforces handle' : 'LeetCode handle'}
+                            className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl pl-7 pr-3 py-2 text-xs font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/10 focus:border-[#7C3AED] w-48 sm:w-56 transition-all"
                             autoFocus
                           />
                         </div>
                         <button
                           onClick={() => handleSavePlatformHandle(plat.key)}
                           disabled={platformSaving || !platformInput.trim()}
-                          className="px-2.5 py-1 bg-[#7C3AED] text-white rounded-lg text-[11px] font-bold hover:bg-[#6D28D9] cursor-pointer disabled:opacity-50 inline-flex items-center gap-1"
+                          className="px-4 py-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5 shadow-2xs shrink-0"
                         >
                           {platformSaving ? (
                             <>
-                              <RefreshCw className="w-3 h-3 animate-spin" />
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                               <span>Connecting...</span>
                             </>
                           ) : (
@@ -844,9 +762,10 @@ export default function Settings() {
                         </button>
                         <button
                           onClick={() => { setEditingPlatform(null); setPlatformInput(''); }}
-                          className="p-1 text-gray-400 hover:text-gray-600 cursor-pointer"
+                          className="p-2 border border-[#E5E9F0] hover:border-gray-300 text-gray-400 hover:text-gray-600 rounded-xl transition-colors cursor-pointer shrink-0"
+                          title="Cancel"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     ) : plat.isConnected ? (

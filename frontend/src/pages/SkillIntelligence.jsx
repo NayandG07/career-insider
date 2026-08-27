@@ -1,283 +1,575 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
   Sparkles, 
-  Download, 
-  ArrowUpRight,
-  RefreshCw,
-  Code,
-  Database,
-  Globe,
-  Cpu,
-  Layers
+  RefreshCw, 
+  Code, 
+  Database, 
+  Globe, 
+  Terminal, 
+  Layers,
+  Award,
+  CheckCircle2,
+  TrendingUp,
+  AlertTriangle,
+  FolderGit2,
+  ShieldCheck,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Filter,
+  Info,
+  ArrowRight,
+  Zap,
+  Clock,
+  ExternalLink,
+  Target
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import ReadinessGate from '../components/ReadinessGate';
 
-const CATEGORY_ICONS = [Cpu, Code, Database, Globe, Layers];
-const CATEGORY_COLORS = [
-  "bg-violet-900 text-white",
-  "bg-slate-900 text-white",
-  "bg-blue-900 text-white",
-  "bg-emerald-900 text-white",
-  "bg-rose-900 text-white",
-];
-const SCORE_COLORS = ["text-[#6366F1]", "text-[#7C3AED]", "text-[#06B6D4]", "text-[#10B981]", "text-[#F59E0B]"];
-
-export default function SkillIntelligence() {
-  const { skills, fetchSkillProfile } = useApp();
+export default function SkillIntelligence({ setActivePage }) {
+  const { skills, loadSavedSkillProfile, fetchSkillProfile, readiness } = useApp();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Auto-fetch on first mount if no skills yet
+  // Search & Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
+  const [selectedSourceFilter, setSelectedSourceFilter] = useState('all');
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [activeDimensionModal, setActiveDimensionModal] = useState(null);
+
+  // Load saved profile on mount once
   useEffect(() => {
-    if (!skills) {
-      handleAnalyze();
-    }
+    let isMounted = true;
+    const init = async () => {
+      if (loadSavedSkillProfile) {
+        await loadSavedSkillProfile().catch(() => {});
+      }
+      if (isMounted) setHasInitialized(true);
+    };
+    init();
+    return () => { isMounted = false; };
   }, []);
 
   const handleAnalyze = async () => {
+    if (!readiness?.ready) return;
     setLoading(true);
     setError(null);
     try {
       await fetchSkillProfile();
     } catch (e) {
-      setError('Failed to run skill analysis. Make sure your profile is set up and try again.');
+      setError(e.message || 'Failed to run skill analysis. Make sure your developer sources are connected and try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // skills is the SkillProfile doc from DB
-  // categories: [{name, score, tags}]
-  // masteryItems: [{title, level, score, trend}]
-  // gapAnalysis: [{name, delta, priority}]
-  // trendingSkills: [{name, demand}]
+  // Readiness Gate Check
+  if (hasInitialized && readiness && !readiness.ready) {
+    return (
+      <ReadinessGate 
+        featureName="Skill Intelligence" 
+        readiness={readiness} 
+        setActivePage={setActivePage} 
+        description="Skill Intelligence needs more evidence to generate an accurate capability profile. Connect LeetCode, Codeforces, and add at least one project to verify your practical and problem-solving skills."
+      />
+    );
+  }
 
-  const topCategories = skills?.categories?.length > 0
-    ? skills.categories.slice(0, 3).map((cat, i) => ({
-        name: cat.name,
-        score: cat.score,
-        tags: cat.tags?.length > 0 ? cat.tags : ['No tags'],
-        color: SCORE_COLORS[i % SCORE_COLORS.length],
-      }))
-    : [
-        { name: 'Algorithms & DSA', score: 0, tags: ['Run analysis to populate'], color: SCORE_COLORS[0] },
-        { name: 'Backend Engineering', score: 0, tags: ['Run analysis to populate'], color: SCORE_COLORS[1] },
-        { name: 'Frontend Development', score: 0, tags: ['Run analysis to populate'], color: SCORE_COLORS[2] },
-      ];
+  const categories = skills?.categories || [];
+  const skillItems = skills?.skills || [];
+  const gapAnalysis = skills?.gapAnalysis || [];
+  const sourceContributions = skills?.sourceContributions || {};
+  const previousSnapshots = skills?.previousSnapshots || [];
+  const counts = sourceContributions?.counts || {
+    leetcode: 0,
+    codeforces: 0,
+    github: 0,
+    project: 0,
+    total: 0,
+  };
 
-  const masteryGrid = skills?.masteryItems?.length > 0
-    ? skills.masteryItems.slice(0, 4).map((m, i) => ({
-        title: m.title,
-        icon: CATEGORY_ICONS[i % CATEGORY_ICONS.length],
-        color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
-        level: m.level || 'Beginner',
-        score: `${m.score}%`,
-        footer: `Last analyzed`,
-        trend: m.trend || 'stable',
-      }))
-    : [{
-        title: 'No data yet',
-        icon: Code,
-        color: 'bg-slate-900 text-white',
-        level: 'Unknown',
-        score: '0%',
-        footer: 'Run an analysis to populate',
-        trend: 'stable',
-      }];
+  // KPI Calculations
+  const strongCount = skillItems.filter(s => s.level === 'Strong' || s.level === 'Advanced Evidence' || s.level === 'Expert').length;
+  const developingCount = skillItems.filter(s => s.level === 'Developing' || s.level === 'Intermediate').length;
+  const emergingCount = skillItems.filter(s => s.level === 'Emerging' || s.level === 'Insufficient Evidence').length;
+  const totalVerifiedCount = counts.total || skillItems.reduce((sum, s) => sum + (s.evidenceCount || 1), 0);
 
-  const gapAnalysis = skills?.gapAnalysis?.length > 0
-    ? skills.gapAnalysis.map((g, i) => ({
-        name: g.name,
-        delta: g.delta,
-        deltaColor: i === 0 ? 'text-red-500' : i === 1 ? 'text-amber-600' : 'text-amber-500',
-        priority: g.priority,
-        priorityBg: i === 0 ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600',
-      }))
-    : [
-        { name: 'No gaps identified yet', delta: 'Run analysis', deltaColor: 'text-gray-400', priority: 'PENDING', priorityBg: 'bg-gray-50 text-gray-500' },
-      ];
+  // Progress Delta Calculation
+  const progressDelta = useMemo(() => {
+    if (!previousSnapshots || previousSnapshots.length === 0) return null;
+    const lastSnapshot = previousSnapshots[previousSnapshots.length - 1];
+    const scoreDiff = (skills?.readinessScore || 50) - (lastSnapshot.readinessScore || 50);
+    const dateFormatted = lastSnapshot.computedAt ? new Date(lastSnapshot.computedAt).toLocaleDateString() : 'earlier';
+    return {
+      scoreDiff,
+      lastDate: dateFormatted,
+      isPositive: scoreDiff >= 0,
+    };
+  }, [previousSnapshots, skills]);
 
-  const trendingSkills = skills?.trendingSkills?.length > 0
-    ? skills.trendingSkills
-    : [
-        { name: 'Rust / WebAssembly', demand: '+120% YoY demand' },
-        { name: 'GraphQL Federation', demand: '+85% YoY demand' },
-        { name: 'eBPF Analytics', demand: '+65% YoY demand' },
-      ];
+  // Filtered & Searched Skills
+  const filteredSkills = useMemo(() => {
+    return skillItems.filter(item => {
+      // Category filter
+      if (selectedCategoryFilter !== 'all') {
+        const itemCat = (item.category || '').toLowerCase();
+        const selCat = selectedCategoryFilter.toLowerCase();
+        if (!itemCat.includes(selCat) && !selCat.includes(itemCat)) return false;
+      }
+
+      // Source filter
+      if (selectedSourceFilter !== 'all') {
+        const refs = item.evidenceRefs || [];
+        const hasSource = refs.some(r => r.startsWith(`${selectedSourceFilter}:`));
+        const summary = (item.evidenceSummary || '').toLowerCase();
+        if (!hasSource && !summary.includes(selectedSourceFilter)) return false;
+      }
+
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchName = item.name.toLowerCase().includes(q);
+        const matchExpl = (item.explanation || '').toLowerCase().includes(q);
+        const matchSummary = (item.evidenceSummary || '').toLowerCase().includes(q);
+        const matchCat = (item.category || '').toLowerCase().includes(q);
+        if (!matchName && !matchExpl && !matchSummary && !matchCat) return false;
+      }
+
+      return true;
+    });
+  }, [skillItems, selectedCategoryFilter, selectedSourceFilter, searchQuery]);
+
+  // Visible items based on progressive disclosure
+  const displayedSkills = isExpanded ? filteredSkills : filteredSkills.slice(0, 6);
 
   return (
-    <div className="space-y-6 pb-12 animate-fadeIn text-left">
+    <div className="space-y-6 pb-16 animate-fadeIn text-left">
       
-      {/* Title Row */}
+      {/* 1. Header & Re-analyze Action */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-bold text-[#111827] tracking-tight leading-tight">
-            Skill Intelligence Profile
-          </h1>
-          <p className="text-sm text-[#4B5563] mt-1 font-semibold">
-            {skills ? `Last computed: ${skills.lastComputedAt ? new Date(skills.lastComputedAt).toLocaleDateString() : 'Recently'}` : 'CareerOS AI engine will map your developer credentials.'}
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-[26px] sm:text-[28px] font-bold text-[#111827] tracking-tight leading-tight">
+              Skill Intelligence & Verified Evidence
+            </h1>
+            <span className="text-[10px] font-extrabold bg-purple-50 text-[#7C3AED] px-2 py-0.5 rounded-md uppercase tracking-wider border border-purple-200">
+              v2 Engine
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-[#4B5563] mt-1 font-semibold">
+            {skills?.lastComputedAt 
+              ? `Anchored on verified platform telemetry • Last analyzed ${new Date(skills.lastComputedAt).toLocaleDateString()}` 
+              : 'Deterministic 5-dimension scoring & qualitative AI interpretation anchored on source facts.'}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="px-5 py-2.5 bg-white border border-[#E5E9F0] text-[#111827] font-semibold text-xs rounded-xl shadow-sm hover:bg-[#FAFBFC] transition-all cursor-pointer flex items-center gap-1.5">
-            <Download className="w-3.5 h-3.5 text-[#4B5563]" />
-            Export profile
-          </button>
-          
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={handleAnalyze}
             disabled={loading}
-            className="px-5 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-60 text-white font-semibold text-xs rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+            className="px-5 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-2"
           >
-            {loading ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Sparkles className="w-3.5 h-3.5 fill-white/10" />
-            )}
-            {loading ? 'Analyzing…' : skills ? 'Re-analyze Skills' : 'Analyze My Skills'}
-          </button>
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>{loading ? 'Analyzing Evidence…' : (skills?.lastComputedAt ? 'Re-analyze Skills' : 'Analyze Skills with AI')}</span>
+          </motion.button>
         </div>
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs font-bold text-red-600">
-          {error}
+        <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-xs font-bold text-red-600 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
-      {loading && (
-        <div className="flex items-center justify-center py-16 gap-3 text-[#7C3AED]">
-          <RefreshCw className="w-5 h-5 animate-spin" />
-          <span className="text-sm font-bold">AI is analyzing your developer profile…</span>
-        </div>
+      {/* 2. "Your Progress" Historical Delta Banner */}
+      {progressDelta && (
+        <motion.div 
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-purple-50 via-indigo-50 to-emerald-50 border border-[#E5E9F0] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-white border border-[#E5E9F0] flex items-center justify-center text-[#7C3AED] shadow-2xs shrink-0">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-[#111827]">Your Progress Since Last Snapshot</span>
+                <span className="text-[10px] text-[#6B7280] font-semibold">({progressDelta.lastDate})</span>
+              </div>
+              <p className="text-[11px] text-[#4B5563] font-semibold mt-0.5">
+                {progressDelta.isPositive ? '+' : ''}{progressDelta.scoreDiff} pts overall evidence progression across verified telemetry.
+              </p>
+            </div>
+          </div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-[#E5E9F0] text-[#111827] text-xs font-bold rounded-xl shadow-2xs">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Immutable Snapshot Recorded</span>
+          </div>
+        </motion.div>
       )}
 
-      {!loading && (
-        <>
-          {/* Top 3 Columns: Category Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {topCategories.map((cat, idx) => (
-              <div key={idx} className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-sm space-y-4">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-xs font-bold text-[#111827]">{cat.name}</span>
-                  <span className={`text-sm font-black ${cat.color}`}>{cat.score}%</span>
-                </div>
-                
-                {/* Progress Bar */}
-                <div className="w-full bg-[#F3F4F6] h-1.5 rounded-full overflow-hidden">
-                  <div className="h-full bg-[#6366F1] transition-all duration-700" style={{ width: `${cat.score}%` }}></div>
-                </div>
+      {/* 3. Summary KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-xs space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Total Evidence</span>
+            <ShieldCheck className="w-4 h-4 text-[#7C3AED]" />
+          </div>
+          <div className="text-2xl font-black text-[#111827]">{totalVerifiedCount} Items</div>
+          <p className="text-[10px] text-[#9CA3AF] font-bold">Cross-platform data points</p>
+        </div>
 
-                {/* Sub-tags */}
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {cat.tags.map((tag, tIdx) => (
-                    <span 
-                      key={tIdx} 
-                      className="text-[9px] px-2 py-0.5 rounded-md border border-[#E5E9F0] bg-[#FAFBFC] font-semibold text-[#6B7280]"
-                    >
-                      {tag}
+        <div className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-xs space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Strong Mastery</span>
+            <Award className="w-4 h-4 text-emerald-500" />
+          </div>
+          <div className="text-2xl font-black text-emerald-700">{strongCount} Skills</div>
+          <p className="text-[10px] text-[#9CA3AF] font-bold">Multi-source verified</p>
+        </div>
+
+        <div className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-xs space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-[#7C3AED] uppercase tracking-wider">Developing</span>
+            <TrendingUp className="w-4 h-4 text-[#7C3AED]" />
+          </div>
+          <div className="text-2xl font-black text-[#7C3AED]">{developingCount} Skills</div>
+          <p className="text-[10px] text-[#9CA3AF] font-bold">Active problem & code sets</p>
+        </div>
+
+        <div className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-xs space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Priority Gaps</span>
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
+          </div>
+          <div className="text-2xl font-black text-amber-600">{emergingCount || gapAnalysis.length} Focus Areas</div>
+          <p className="text-[10px] text-[#9CA3AF] font-bold">Next evidence milestones</p>
+        </div>
+      </div>
+
+      {/* 4. Domain Capabilities (5-Dimension Evidence Strength Cards) */}
+      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F3F4F6] pb-4">
+          <div>
+            <h2 className="text-base font-bold text-[#111827]">
+              Domain Capability & Evidence Strength
+            </h2>
+            <p className="text-xs text-[#6B7280] font-semibold mt-0.5">
+              Evaluated across Breadth (20%), Depth (30%), Recency (15%), Practical Application (20%), and Corroboration (15%).
+            </p>
+          </div>
+          <span className="text-[10px] font-bold text-[#7C3AED] uppercase tracking-wider bg-purple-50 px-2.5 py-1 rounded-full shrink-0">
+            5-DIMENSION MODEL
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {categories.map((cat, idx) => {
+            const dims = cat.dimensions || { breadth: 0, depth: 0, recency: 0, application: 0, corroboration: 0 };
+            return (
+              <div 
+                key={idx}
+                className="p-5 rounded-2xl border border-[#E5E9F0] bg-[#FAFBFC] hover:bg-white hover:border-[#7C3AED]/30 transition-all space-y-3.5 shadow-2xs flex flex-col justify-between"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-[#111827]">{cat.name}</span>
+                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase ${
+                      cat.level === 'Advanced Evidence' || cat.level === 'Strong' 
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                        : cat.level === 'Developing' 
+                        ? 'bg-purple-50 text-[#7C3AED] border border-purple-200' 
+                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}>
+                      {cat.level}
                     </span>
-                  ))}
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-[#6B7280] text-[11px]">Evidence Strength</span>
+                    <span className="text-[#111827] font-black">{cat.score} / 100</span>
+                  </div>
+
+                  <div className="w-full bg-[#E5E9F0] h-2.5 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        cat.score >= 65 
+                          ? 'bg-gradient-to-r from-emerald-500 to-teal-500' 
+                          : cat.score >= 45 
+                          ? 'bg-gradient-to-r from-[#7C3AED] to-[#6366F1]' 
+                          : 'bg-gradient-to-r from-amber-400 to-orange-500'
+                      }`}
+                      style={{ width: `${Math.max(6, cat.score)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* 5-Dimension Mini Pills */}
+                <div className="pt-2 border-t border-[#F3F4F6] grid grid-cols-3 sm:grid-cols-5 gap-1.5 text-[9px] font-bold text-[#6B7280]">
+                  <div className="bg-white border border-[#E5E9F0] px-1.5 py-1 rounded text-center" title="Breadth: Concept domain coverage">
+                    <span className="block text-[8px] text-[#9CA3AF]">BREADTH</span>
+                    <span className="text-[#111827]">{dims.breadth}/20</span>
+                  </div>
+                  <div className="bg-white border border-[#E5E9F0] px-1.5 py-1 rounded text-center" title="Depth: Difficulty & rating benchmarks">
+                    <span className="block text-[8px] text-[#9CA3AF]">DEPTH</span>
+                    <span className="text-[#111827]">{dims.depth}/30</span>
+                  </div>
+                  <div className="bg-white border border-[#E5E9F0] px-1.5 py-1 rounded text-center" title="Recency: Active days & commit frequency">
+                    <span className="block text-[8px] text-[#9CA3AF]">RECENCY</span>
+                    <span className="text-[#111827]">{dims.recency}/15</span>
+                  </div>
+                  <div className="bg-white border border-[#E5E9F0] px-1.5 py-1 rounded text-center" title="Application: Showcase project usage">
+                    <span className="block text-[8px] text-[#9CA3AF]">PROJECTS</span>
+                    <span className="text-[#111827]">{dims.application}/20</span>
+                  </div>
+                  <div className="bg-white border border-[#E5E9F0] px-1.5 py-1 rounded text-center" title="Corroboration: Multi-source corroboration">
+                    <span className="block text-[8px] text-[#9CA3AF]">CROSS-SRC</span>
+                    <span className="text-[#111827]">{dims.corroboration}/15</span>
+                  </div>
                 </div>
               </div>
-            ))}
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 5. Interactive Filter & Search Bar */}
+      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-xs space-y-4">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+          
+          {/* Live Search Input */}
+          <div className="relative w-full md:w-80">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
+            <input 
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search skills, evidence, or technologies…"
+              className="w-full pl-10 pr-4 py-2 bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl text-xs font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/10 focus:border-[#7C3AED] transition-all"
+            />
           </div>
 
-          {/* Layout Split: Left Mastery, Right Gap Analysis */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
-            {/* Left Area: Mastery Details */}
-            <div className="lg:col-span-8 space-y-6">
-              <h3 className="text-xs font-bold text-[#111827] uppercase tracking-wider">
-                Algorithmic & Platform Mastery Details
-              </h3>
+          {/* Interactive Source Filter Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+            {[
+              { id: 'all', label: 'All Sources', count: totalVerifiedCount },
+              { id: 'leetcode', label: 'LeetCode', count: counts.leetcode },
+              { id: 'codeforces', label: 'Codeforces', count: counts.codeforces },
+              { id: 'project', label: 'Projects', count: counts.project },
+              ...(counts.github > 0 ? [{ id: 'github', label: 'GitHub', count: counts.github }] : [])
+            ].map(src => {
+              const isSelected = selectedSourceFilter === src.id;
+              return (
+                <button
+                  key={src.id}
+                  onClick={() => setSelectedSourceFilter(src.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-[#111827] text-white shadow-2xs'
+                      : 'bg-[#FAFBFC] border border-[#E5E9F0] text-[#4B5563] hover:bg-white'
+                  }`}
+                >
+                  <span>{src.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-600'}`}>
+                    {src.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                {masteryGrid.map((m, idx) => {
-                  const Icon = m.icon;
-                  return (
-                    <div key={idx} className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-sm flex flex-col justify-between h-[150px]">
-                      
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-xl ${m.color} flex items-center justify-center shrink-0`}>
-                            <Icon className="w-5 h-5" />
-                          </div>
-                          <h4 className="text-xs font-bold text-[#111827] leading-tight">{m.title}</h4>
+        {/* Category Filter Pills */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-[#F3F4F6]">
+          {[
+            { id: 'all', label: 'All Categories' },
+            { id: 'algorithms', label: 'Algorithms & Problem Solving' },
+            { id: 'programming languages', label: 'Languages' },
+            { id: 'backend', label: 'Backend' },
+            { id: 'frontend', label: 'Frontend' },
+            { id: 'systems', label: 'Systems & Tools' },
+          ].map(cat => {
+            const isSelected = selectedCategoryFilter === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategoryFilter(cat.id)}
+                className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-[#7C3AED] text-white shadow-2xs'
+                    : 'bg-[#F3F4F6] text-[#6B7280] hover:bg-gray-200'
+                }`}
+              >
+                {cat.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 6. Main Grid: Verified Evidence Items (Left 8) + Priority Gaps (Right 4) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* Left Column: Traceable Evidence Cards (Bounded with Progressive Disclosure) */}
+        <div className="lg:col-span-8 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-[#111827] uppercase tracking-wider flex items-center gap-2">
+              <span>Verified Skill Evidence & Interpretation</span>
+              <span className="text-[10px] font-normal text-gray-400">({filteredSkills.length} matches)</span>
+            </h3>
+          </div>
+
+          {filteredSkills.length === 0 ? (
+            <div className="p-10 bg-white border border-[#E5E9F0] rounded-3xl text-center text-xs font-bold text-[#6B7280] space-y-2">
+              <Filter className="w-6 h-6 text-gray-400 mx-auto" />
+              <p>No skills match your active filter or search query.</p>
+              <button 
+                onClick={() => { setSearchQuery(''); setSelectedCategoryFilter('all'); setSelectedSourceFilter('all'); }}
+                className="px-3 py-1 bg-purple-50 text-[#7C3AED] rounded-lg text-xs font-bold cursor-pointer"
+              >
+                Reset Filters
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {displayedSkills.map((item, idx) => (
+                  <motion.div 
+                    key={idx}
+                    layout
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="bg-white border border-[#E5E9F0] rounded-2xl p-5 shadow-xs flex flex-col justify-between space-y-3 hover:border-[#7C3AED]/40 transition-all"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="text-xs font-bold text-[#111827] leading-snug">{item.name}</h4>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase ${
+                            item.level === 'Advanced Evidence' || item.level === 'Strong' 
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                              : item.level === 'Developing' 
+                              ? 'bg-purple-50 text-[#7C3AED] border border-purple-200' 
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}>
+                            {item.level}
+                          </span>
+                          {item.confidence && (
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${
+                              item.confidence === 'High' ? 'bg-slate-100 text-slate-700' : 'bg-gray-50 text-gray-500'
+                            }`} title={`Confidence: ${item.confidence}`}>
+                              {item.confidence}
+                            </span>
+                          )}
                         </div>
                       </div>
 
-                      <div className="flex items-baseline justify-between mt-2.5">
-                        <span className="text-[11px] text-[#9CA3AF] font-bold uppercase">{m.level}</span>
-                        <span className="text-2xl font-black text-[#111827] flex items-center gap-1 leading-none">
-                          {m.score}
-                          {m.trend === 'up' ? (
-                            <ArrowUpRight className="w-5 h-5 text-[#10B981] shrink-0" />
-                          ) : (
-                            <span className="text-[#9CA3AF] text-sm font-bold shrink-0 ml-1">—</span>
-                          )}
-                        </span>
-                      </div>
+                      {item.evidenceSummary && (
+                        <div className="text-[10px] font-bold text-[#7C3AED] bg-purple-50/60 rounded-lg px-2.5 py-1 inline-block">
+                          {item.evidenceSummary}
+                        </div>
+                      )}
 
-                      <div className="border-t border-[#F3F4F6] pt-3 text-[10px] text-[#9CA3AF] font-semibold">
-                        {m.footer}
-                      </div>
-
+                      <p className="text-[11px] text-[#4B5563] font-semibold leading-relaxed">
+                        {item.explanation}
+                      </p>
                     </div>
-                  );
-                })}
+
+                    {item.focusNext && (
+                      <div className="border-t border-[#F3F4F6] pt-2.5 text-[10px] text-gray-500 font-semibold flex items-start gap-1.5">
+                        <Target className="w-3.5 h-3.5 text-[#7C3AED] shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold text-gray-800">Next Evidence:</span> {item.focusNext}
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
               </div>
+
+              {/* Progressive Disclosure Expand / Collapse */}
+              {filteredSkills.length > 6 && (
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="w-full py-3 bg-white hover:bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl text-xs font-bold text-[#111827] hover:text-[#7C3AED] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+                >
+                  {isExpanded ? (
+                    <>
+                      <span>Show Fewer Skills</span>
+                      <ChevronUp className="w-4 h-4" />
+                    </>
+                  ) : (
+                    <>
+                      <span>View All {filteredSkills.length} Verified Skills</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
+
+        </div>
+
+        {/* Right Column: Priority Gaps & Actionable Steps */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#F3F4F6]">
+              <h3 className="text-xs font-bold text-[#111827] uppercase tracking-wider">
+                Priority Gaps & Next Evidence
+              </h3>
+              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                ACTION ITEMS
+              </span>
             </div>
 
-            {/* Right Area: Priority Gap Analysis & Trending Skills */}
-            <div className="lg:col-span-4 space-y-6">
-              
-              {/* Priority Skill Gap Analysis */}
-              <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-sm space-y-5">
-                <h3 className="text-xs font-bold text-[#111827] uppercase tracking-wider block border-b border-[#F3F4F6] pb-3">
-                  Priority Skill Gap Analysis
-                </h3>
-
-                <div className="space-y-4">
-                  {gapAnalysis.map((gap, idx) => (
-                    <div key={idx} className="flex items-start justify-between gap-4">
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-bold text-[#374151]">{gap.name}</h4>
-                        <span className={`text-[10px] font-bold ${gap.deltaColor}`}>{gap.delta}</span>
-                      </div>
-
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${gap.priorityBg}`}>
-                        {gap.priority}
+            <div className="space-y-3">
+              {gapAnalysis.length === 0 ? (
+                <p className="text-xs text-gray-400 font-medium py-4 text-center">
+                  No critical gaps identified in current telemetry.
+                </p>
+              ) : (
+                gapAnalysis.map((gap, idx) => (
+                  <div key={idx} className="p-4 bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="text-xs font-bold text-[#111827]">{gap.name}</h4>
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 shrink-0">
+                        {gap.priority || 'P2 PRIORITY'}
                       </span>
                     </div>
-                  ))}
-                </div>
-              </div>
 
-              {/* Trending Skills */}
-              <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-sm space-y-5">
-                <h3 className="text-xs font-bold text-[#111827] uppercase tracking-wider block border-b border-[#F3F4F6] pb-3">
-                  Trending Skills for Staff Roles
-                </h3>
-
-                <div className="space-y-4">
-                  {trendingSkills.map((tr, idx) => (
-                    <div key={idx} className="flex justify-between items-center text-xs font-semibold text-[#4B5563]">
-                      <span>{tr.name}</span>
-                      <span className="text-[#10B981] font-bold text-[10px]">
-                        {tr.demand}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
+                    <p className="text-[11px] text-[#6B7280] font-semibold leading-relaxed">
+                      {gap.recommendation || `Focus on building verified project proof points for ${gap.category || 'this domain'}.`}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
-
           </div>
-        </>
-      )}
+
+          {/* Transparent Scoring Methodology Note */}
+          <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-3xl p-5 space-y-2 text-left text-xs">
+            <div className="flex items-center gap-2 font-bold text-[#111827]">
+              <Info className="w-4 h-4 text-[#7C3AED]" />
+              <span>Evidence Strength Standard</span>
+            </div>
+            <p className="text-[11px] text-[#6B7280] font-medium leading-relaxed">
+              CareerOS computes evidence strength using calibrated mathematical diminishing returns across breadth, depth, recency, project application, and cross-source verification. Scores reflect strength of verified evidence rather than unanchored percentage assumptions.
+            </p>
+          </div>
+        </div>
+
+      </div>
 
     </div>
   );

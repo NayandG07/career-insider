@@ -19,19 +19,15 @@ Modern developers use multiple platforms throughout their learning and career jo
 - GitHub
 - LeetCode
 - Codeforces
-- CodeChef
-- Kaggle
-- GeeksforGeeks
 - Personal Projects
 - Resumes
 - Certifications
 
 Each platform provides isolated metrics:
 
-- GitHub tracks contributions
-- LeetCode tracks solved problems
-- Codeforces tracks ratings
-- Kaggle tracks competitions
+- GitHub tracks contributions and repositories
+- LeetCode tracks solved algorithmic problems
+- Codeforces tracks competitive ratings
 
 While these platforms provide valuable statistics, they fail to answer critical career questions:
 

@@ -111,9 +111,9 @@ function MainAppContent() {
       case 'dashboard':
         return <Dashboard setActivePage={setActivePage} />;
       case 'roadmap':
-        return <Roadmap />;
+        return <Roadmap setActivePage={setActivePage} />;
       case 'skills':
-        return <SkillIntelligence />;
+        return <SkillIntelligence setActivePage={setActivePage} />;
       case 'companies':
         return <CompanyMatches />;
       case 'projects':

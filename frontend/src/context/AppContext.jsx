@@ -1,6 +1,7 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import { userService } from '../services/userService';
 import { telemetryService } from '../services/telemetryService';
+import { projectService } from '../services/projectService';
 import { aiService } from '../services/aiService';
 import { authService } from '../services/authService';
 
@@ -10,6 +11,7 @@ export const AppProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('accessToken'));
   const [userData, setUserData] = useState(null);
   const [telemetry, setTelemetry] = useState(null);
+  const [projects, setProjects] = useState([]);
 
   // Data state populated by API calls
   const [skills, setSkills] = useState(null);
@@ -19,8 +21,29 @@ export const AppProvider = ({ children }) => {
 
   const [isLoading, setIsLoading] = useState(true);
 
-  // Role is derived from the authenticated backend user, not a local toggle.
+  // Role is derived from the authenticated backend user
   const isAdmin = userData?.role === 'admin';
+
+  // ─── Single Canonical Readiness Gate ─────────────────────────────────────────
+  const hasLeetCode = Boolean(userData?.connectedSources?.leetcode?.trim());
+  const hasCodeforces = Boolean(userData?.connectedSources?.codeforces?.trim());
+  const hasProject = Array.isArray(projects) && projects.length > 0;
+  const isReady = hasLeetCode && hasCodeforces && hasProject;
+
+  const readiness = useMemo(() => {
+    const missing = [];
+    if (!hasLeetCode) missing.push('LeetCode account connection');
+    if (!hasCodeforces) missing.push('Codeforces handle connection');
+    if (!hasProject) missing.push('At least 1 showcase project');
+
+    return {
+      leetcode: hasLeetCode,
+      codeforces: hasCodeforces,
+      hasProject: hasProject,
+      ready: isReady,
+      missing,
+    };
+  }, [hasLeetCode, hasCodeforces, hasProject, isReady]);
 
   // Load initial user data if authenticated
   useEffect(() => {
@@ -34,15 +57,16 @@ export const AppProvider = ({ children }) => {
   const loadInitialData = async () => {
     setIsLoading(true);
     try {
-      const [userRes, telRes] = await Promise.all([
+      const [userRes, telRes, projRes] = await Promise.all([
         userService.getMe(),
-        telemetryService.getTelemetry().catch(() => null)
+        telemetryService.getTelemetry().catch(() => null),
+        projectService.getProjects().catch(() => []),
       ]);
       setUserData(userRes);
       setTelemetry(telRes);
+      setProjects(projRes || []);
     } catch (err) {
-      console.error('Failed to load user data', err);
-      // Token is invalid or expired — clear auth state
+      console.error('Failed to load initial user data', err);
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       setIsAuthenticated(false);
@@ -57,9 +81,6 @@ export const AppProvider = ({ children }) => {
   };
 
   const register = async (name, email, password) => {
-    // register() already returns valid tokens and stores them in localStorage.
-    // Do NOT call login() again — that would make a second bcrypt comparison
-    // and second network round-trip, which can cause 502 under load.
     await authService.register(name, email, password);
     setIsAuthenticated(true);
   };
@@ -68,31 +89,101 @@ export const AppProvider = ({ children }) => {
     await authService.logout();
     setIsAuthenticated(false);
     setUserData(null);
+    setTelemetry(null);
+    setProjects([]);
+    setSkills(null);
+    setRoadmap(null);
   };
 
-  // Generate real data from AI endpoints
+  const refreshProjects = useCallback(async () => {
+    try {
+      const res = await projectService.getProjects();
+      setProjects(res || []);
+      return res || [];
+    } catch (e) {
+      console.error('Failed to refresh projects', e);
+      return [];
+    }
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const [userRes, telRes, projRes] = await Promise.all([
+        userService.getMe(),
+        telemetryService.getTelemetry().catch(() => null),
+        projectService.getProjects().catch(() => []),
+      ]);
+      setUserData(userRes);
+      setTelemetry(telRes);
+      setProjects(projRes || []);
+      return { user: userRes, telemetry: telRes, projects: projRes };
+    } catch (err) {
+      console.error('Failed to refresh user data', err);
+    }
+  }, []);
+
+  // ─── Skill Profile Actions ──────────────────────────────────────────────────
+  const loadSavedSkillProfile = async () => {
+    if (!isReady) {
+      setSkills(null);
+      return null;
+    }
+    try {
+      const res = await aiService.getSkillProfile();
+      if (res?.profile) {
+        setSkills(res.profile);
+        return res.profile;
+      }
+      return null;
+    } catch (err) {
+      console.error('Failed to load saved skill profile:', err);
+      return null;
+    }
+  };
+
   const fetchSkillProfile = async () => {
-    // Throws on error so callers can show proper error states
+    if (!isReady) {
+      setSkills(null);
+      throw new Error('Insufficient sources connected for skill analysis.');
+    }
     const res = await aiService.analyzeSkills();
-    // res.profile is the full SkillProfile DB document: { categories, masteryItems, gapAnalysis, trendingSkills }
     setSkills(res.profile);
-    // Also refresh user to pick up updated readinessScore
     userService.getMe().then(setUserData).catch(() => {});
     return res.profile;
   };
 
-  const fetchRoadmap = async (roles) => {
-    // Throws on error so callers can show proper error states
-    const res = await aiService.generateRoadmap(roles);
-    // res = { milestones, readiness } from Node controller
-    setRoadmap(res);
-    return res;
+  // ─── Roadmap Actions ─────────────────────────────────────────────────────────
+  const loadSavedRoadmap = async () => {
+    if (!isReady) {
+      setRoadmap(null);
+      return null;
+    }
+    try {
+      const res = await aiService.getRoadmap();
+      if (res?.roadmap) {
+        setRoadmap(res.roadmap);
+        return res.roadmap;
+      }
+      return null;
+    } catch (err) {
+      console.error('Failed to load saved roadmap:', err);
+      return null;
+    }
+  };
+
+  const fetchRoadmap = async (roles, weeklyHours = 10) => {
+    if (!isReady) {
+      setRoadmap(null);
+      throw new Error('Insufficient sources connected for roadmap generation.');
+    }
+    const res = await aiService.generateRoadmap(roles, weeklyHours);
+    const generated = res.roadmap || res;
+    setRoadmap(generated);
+    return generated;
   };
 
   const fetchCompanies = async () => {
-    // Throws on error so callers can show proper error states
     const res = await aiService.matchCompanies();
-    // res = { matches: [{name, matchScore, tier, hiringInsights, strong, missing}] }
     setCompanies(res.matches);
     return res.matches;
   };
@@ -111,25 +202,12 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const refreshUser = async () => {
-    try {
-      const [userRes, telRes] = await Promise.all([
-        userService.getMe(),
-        telemetryService.getTelemetry().catch(() => null)
-      ]);
-      setUserData(userRes);
-      setTelemetry(telRes);
-      return { user: userRes, telemetry: telRes };
-    } catch (err) {
-      console.error('Failed to refresh user data', err);
-    }
-  };
-
   const updateSubtask = async (milestoneId, subtaskId, completed) => {
     try {
       const res = await aiService.updateSubtask(milestoneId, subtaskId, completed);
-      // Refresh roadmap state from updated DB milestones
-      if (res.milestones) {
+      if (res?.roadmap) {
+        setRoadmap(res.roadmap);
+      } else if (res?.milestones) {
         setRoadmap(prev => prev ? { ...prev, milestones: res.milestones } : prev);
       }
     } catch (e) {
@@ -148,25 +226,30 @@ export const AppProvider = ({ children }) => {
       setUserData,
       refreshUser,
       telemetry,
+      projects,
+      setProjects,
+      refreshProjects,
+      readiness,
       isAdmin,
       skills,
       setSkills,
+      loadSavedSkillProfile,
       fetchSkillProfile,
       roadmap,
-      fetchRoadmap,
       setRoadmap,
+      loadSavedRoadmap,
+      fetchRoadmap,
       companies,
       fetchCompanies,
       conversation,
       addMentorMessage,
       setConversation,
       updateSubtask,
-      completeRoadmapItem: () => {}, // kept for backward compat, use updateSubtask instead
+      completeRoadmapItem: () => {},
     }}>
       {children}
     </AppContext.Provider>
   );
 };
-
 
 export const useApp = () => useContext(AppContext);
