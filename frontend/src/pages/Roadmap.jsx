@@ -212,6 +212,17 @@ export default function Roadmap({ setActivePage }) {
     return milestoneMap.get(selectedMilestoneId) || milestones[0] || null;
   }, [selectedMilestoneId, milestoneMap, milestones]);
 
+  // Wait for initialization to complete
+  if (!hasInitialized) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-400 space-y-4">
+        <RefreshCw className="w-8 h-8 text-purple-400 animate-spin" />
+        <span className="text-xs font-bold uppercase tracking-wider">Loading Roadmap Data...</span>
+      </div>
+    );
+  }
+
+
   // Readiness Gate Check
   if (hasInitialized && readiness && !readiness.ready) {
     return (
@@ -452,7 +463,7 @@ export default function Roadmap({ setActivePage }) {
             </span>
           </div>
           <p className="text-xs sm:text-sm text-[#4B5563] mt-1 font-semibold">
-            Targeting: <strong className="text-[#111827]">{roadmap.targetRoles?.join(' • ') || 'Software Engineer'}</strong>
+            Targeting: <strong className="text-[#111827]">{roadmap?.targetRoles?.join(' • ') || 'Software Engineer'}</strong>
           </p>
         </div>
 
@@ -484,21 +495,21 @@ export default function Roadmap({ setActivePage }) {
             <div className="flex items-center gap-2.5">
               <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
               <span className="text-[10px] font-bold text-[#7C3AED] uppercase tracking-wider">
-                {roadmap.summary?.currentEvidenceLevel || 'Verified Evidence Context'}
+                {roadmap?.summary?.currentEvidenceLevel || 'Verified Evidence Context'}
               </span>
             </div>
             <h3 className="text-base sm:text-lg font-black text-[#111827] mt-1.5">
-              {roadmap.summary?.title || `Personalized Roadmap for ${roadmap.targetRoles?.join(' + ')}`}
+              {roadmap?.summary?.title || `Personalized Roadmap for ${roadmap?.targetRoles?.join(' + ') || 'Software Engineer'}`}
             </h3>
             <p className="text-xs text-[#4B5563] font-semibold mt-0.5 leading-relaxed">
-              {roadmap.summary?.description || 'Tailored sequence of milestone competencies based on your verified developer telemetry.'}
+              {roadmap?.summary?.description || 'Tailored sequence of milestone competencies based on your verified developer telemetry.'}
             </p>
           </div>
 
           <div className="flex items-center gap-2 self-start lg:self-center shrink-0">
             <span className="text-[10px] font-bold text-gray-400 uppercase bg-[#FAFBFC] border border-[#E5E9F0] px-3 py-1.5 rounded-xl flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-gray-400" />
-              <span>{roadmap.generatedAt ? `Generated ${new Date(roadmap.generatedAt).toLocaleDateString()}` : 'Active'}</span>
+              <span>{roadmap?.generatedAt ? `Generated ${new Date(roadmap.generatedAt).toLocaleDateString()}` : 'Active'}</span>
             </span>
           </div>
         </div>
@@ -524,7 +535,7 @@ export default function Roadmap({ setActivePage }) {
           <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-4 space-y-1.5 sm:col-span-2 lg:col-span-1">
             <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Target Roles</span>
             <div className="flex flex-wrap gap-1.5">
-              {roadmap.targetRoles?.map((r, idx) => (
+              {roadmap?.targetRoles?.map((r, idx) => (
                 <span key={idx} className="text-[10px] font-extrabold px-2 py-0.5 bg-white border border-[#E5E9F0] text-[#111827] rounded-md">
                   {r}
                 </span>
@@ -535,10 +546,10 @@ export default function Roadmap({ setActivePage }) {
         </div>
 
         {/* Primary Focus Areas Pills */}
-        {roadmap.summary?.primaryFocus?.length > 0 && (
+        {roadmap?.summary?.primaryFocus?.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#F3F4F6]">
             <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Primary Focus:</span>
-            {roadmap.summary.primaryFocus.map((focus, fIdx) => (
+            {roadmap?.summary?.primaryFocus?.map((focus, fIdx) => (
               <span key={fIdx} className="text-xs font-bold px-2.5 py-0.5 rounded-lg bg-purple-50 text-[#7C3AED] border border-purple-100">
                 {focus}
               </span>
