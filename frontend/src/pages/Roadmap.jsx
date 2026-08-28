@@ -503,7 +503,7 @@ export default function Roadmap({ setActivePage }) {
               </span>
             </div>
             <h3 className="text-base sm:text-lg font-black text-[#111827] mt-1.5">
-              {roadmap?.summary?.title || (roadmap?.targetRoles ? `Personalized Roadmap for ${roadmap.targetRoles.join(' + ')}` : 'Personalized Roadmap')}
+              {roadmap?.summary?.title || (roadmap?.targetRoles?.length > 0 ? `Personalized Roadmap for ${roadmap.targetRoles.join(' + ')}` : 'Personalized Roadmap for Software Engineer')}
             </h3>
             <p className="text-xs text-[#4B5563] font-semibold mt-0.5 leading-relaxed">
               {roadmap?.summary?.description || 'Tailored sequence of milestone competencies based on your verified developer telemetry.'}

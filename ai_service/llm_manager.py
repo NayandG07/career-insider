@@ -2,11 +2,9 @@ import time
 import logging
 import asyncio
 from typing import Dict, Any, List, Optional
-from concurrent.futures import ThreadPoolExecutor
-
+import httpx
 from google import genai as google_genai
 from openai import AsyncOpenAI
-from huggingface_hub import InferenceClient
 from pydantic import BaseModel
 
 from utils.db import get_db
@@ -14,8 +12,6 @@ from utils.encryption import decrypt_api_key
 
 logger = logging.getLogger(__name__)
 
-# Thread pool for running sync HuggingFace calls
-_hf_executor = ThreadPoolExecutor(max_workers=4)
 
 class LLMConfig(BaseModel):
     primaryProvider: str
@@ -98,93 +94,58 @@ class LLMManager:
 
     async def _invoke_huggingface(self, model_name: str, prompt: str, api_key: str) -> str:
         """
-        HuggingFace Hub Inference via InferenceClient.
-        Supports any dynamic model name configured in DB or passed by task.
-        Tries chat_completion first, then text_generation, and modern router endpoints.
+        Hugging Face Router API (OpenAI-compatible) via async httpx.
+        Supports standard models and explicit model:provider syntax.
+        Includes 503 cold-start handling with automatic 15s retry and HTML error sanitization.
         """
-        hf_model = model_name.strip() if (model_name and model_name.strip()) else "deepseek-ai/DeepSeek-V4-Pro"
+        hf_model = (model_name.strip()
+                    if model_name and model_name.strip()
+                    else "Qwen/Qwen2.5-72B-Instruct")
 
-        def _run_hf_inference():
-            client = InferenceClient(token=api_key)
+        url = "https://router.huggingface.co/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": hf_model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 2048,
+            "temperature": 0.7,
+            "stream": False
+        }
 
-            # 1. Try standard OpenAI-compatible chat_completion via Hugging Face Hub router
-            try:
-                messages = [{"role": "user", "content": prompt}]
-                response = client.chat_completion(
-                    messages=messages,
-                    model=hf_model,
-                    max_tokens=2048,
-                    temperature=0.7,
+        timeout_seconds = 90.0
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            response = await client.post(url, headers=headers, json=payload)
+
+            # Handle 503 Cold Start (model spinning up)
+            if response.status_code == 503:
+                logger.warning(
+                    f"503 received for {hf_model} — model is cold-starting on HuggingFace router. Waiting 15s before retry..."
                 )
-                if response and response.choices and len(response.choices) > 0:
-                    content = response.choices[0].message.content
+                await asyncio.sleep(15)
+                logger.info(f"Retrying {hf_model} after 503 cold-start wait...")
+                response = await client.post(url, headers=headers, json=payload)
+
+            if response.status_code == 200:
+                result = response.json()
+                if "choices" in result and len(result["choices"]) > 0:
+                    content = result["choices"][0]["message"]["content"]
                     if content is not None:
-                        return content
-            except Exception as e:
-                logger.warning(f"HuggingFace chat_completion failed for '{hf_model}': {e}. Trying text_generation...")
+                        return content.strip()
+                raise RuntimeError(f"HuggingFace router returned empty choices: {result}")
 
-            # 2. Try text_generation via InferenceClient
-            try:
-                gen_response = client.text_generation(
-                    prompt=prompt,
-                    model=hf_model,
-                    max_new_tokens=2048,
-                    temperature=0.7,
-                    return_full_text=False,
-                )
-                if gen_response and gen_response.strip():
-                    return gen_response.strip()
-            except Exception as e:
-                logger.warning(f"HuggingFace text_generation failed for '{hf_model}': {e}. Trying router HTTP request...")
+            # Error sanitization
+            error_text = response.text
+            if error_text.startswith("<!DOCTYPE") or error_text.startswith("<html"):
+                error_msg = f"Hugging Face Router API error: {response.status_code} Gateway Timeout / Error"
+            else:
+                error_msg = f"Hugging Face Router API error ({response.status_code}): {error_text[:200]}"
 
-            # 3. Direct HTTP POST to modern HF router endpoint (https://router.huggingface.co/hf-inference/models/...)
-            import httpx
-            headers = {"Authorization": f"Bearer {api_key}"}
+            raise RuntimeError(error_msg)
 
-            # Try router chat completions
-            try:
-                with httpx.Client(timeout=60.0) as http_client:
-                    resp = http_client.post(
-                        "https://router.huggingface.co/v1/chat/completions",
-                        json={
-                            "model": hf_model,
-                            "messages": [{"role": "user", "content": prompt}],
-                            "max_tokens": 2048,
-                            "temperature": 0.7
-                        },
-                        headers=headers
-                    )
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        return data["choices"][0]["message"]["content"]
-            except Exception as e:
-                logger.warning(f"Direct router chat completion failed for '{hf_model}': {e}")
 
-            # Try router model endpoint
-            url = f"https://router.huggingface.co/hf-inference/models/{hf_model}" if not hf_model.startswith("http") else hf_model
-            formatted_prompt = f"<s>[INST] {prompt} [/INST]"
-            payload = {
-                "inputs": formatted_prompt,
-                "parameters": {
-                    "max_new_tokens": 2048,
-                    "temperature": 0.7,
-                    "return_full_text": False
-                }
-            }
-            with httpx.Client(timeout=60.0) as http_client:
-                resp = http_client.post(url, json=payload, headers=headers)
-                resp.raise_for_status()
-                data = resp.json()
-                if isinstance(data, list) and len(data) > 0 and "generated_text" in data[0]:
-                    return data[0]["generated_text"].strip()
-                elif isinstance(data, dict) and "generated_text" in data:
-                    return data["generated_text"].strip()
-                else:
-                    return str(data)
-
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(_hf_executor, _run_hf_inference)
-        return result
 
     async def _try_provider(self, provider: str, model_name: str, prompt: str) -> Optional[str]:
         keys = await self._get_api_keys(provider)
@@ -248,11 +209,14 @@ class LLMManager:
             return result
 
         # 2. Iterate through fallback providers
+        # Note: pass "" so each provider uses its own sensible default
         for fallback_provider in config.fallbackChain:
             if fallback_provider == config.primaryProvider:
                 continue
             logger.info(f"Falling back to '{fallback_provider}' for task '{task}'")
-            result = await self._try_provider(fallback_provider, "", prompt)
+            # Use primary model only if provider matches, otherwise let each invoker use its default
+            fallback_model = config.primaryModel if fallback_provider == config.primaryProvider else ""
+            result = await self._try_provider(fallback_provider, fallback_model, prompt)
             if result:
                 return result
 

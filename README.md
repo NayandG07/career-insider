@@ -37,6 +37,8 @@
 10. [Environment Variables Configuration](#-environment-variables-configuration)
 11. [Security, Auth & Resilience](#-security-auth--resilience)
 12. [Presentation & Academic Context](#-presentation--academic-context)
+13. [Team & Collaborators](#-team--collaborators)
+14. [License](#-license)
 
 ---
 
@@ -444,6 +446,13 @@ CareerOS was built by a **3-member engineering team** to demonstrate a clean, mo
 1. **Zero Fake Metrics**: Telemetry is gathered from real, verified developer handles through official APIs.
 2. **Microservice Separation of Concerns**: Node.js handles I/O, sync scheduling, and authentication; Python FastAPI handles compute-heavy LLM transformations.
 3. **Clean Code & Explainability**: Minimalist, human-crafted design with no unnecessary enterprise bloat.
+
+---
+
+## 🤝 Team & Collaborators
+
+- **Bikash Das** - Frontend - [GitHub Profile](https://github.com/Bikashthegoat)
+- **Dhiman Saikia** - Frontend and Backend - [GitHub Profile](https://github.com/Dhiman07-cyber)
 
 ---
 

@@ -53,6 +53,40 @@ CareerOS is built on a two-service architecture with a modern, responsive fronte
 ---
 
 ## How It Works Together
-1. **Data Aggregation:** The Node.js backend continuously aggregates raw data from a user's connected platforms.
+
+```mermaid
+graph TD
+    Client[React Frontend UI]
+    Backend[Node.js Backend]
+    DB[(MongoDB Atlas)]
+    AI[Python FastAPI AI Microservice]
+    
+    subgraph External Platforms
+        GitHub
+        LeetCode
+        Codeforces
+        Kaggle
+    end
+    
+    subgraph AI Providers
+        Gemini[Google Gemini]
+        OpenAI[OpenAI GPT]
+        HF[HuggingFace]
+    end
+
+    Client -- "REST API Calls\n(Auth, Data, Proxied AI)" --> Backend
+    Backend -- "Data Sync / CRUD" --> DB
+    Backend -- "Scheduled Polling (Cron Jobs)" --> External Platforms
+    Backend -- "Internal HTTP Proxy" --> AI
+    
+    AI -- "LLM Manager Routing\n(Fallback Chain)" --> AIProviders
+    AI -- "Fetch aiConfigs" --> DB
+    
+    AIProviders -.-> Gemini
+    AIProviders -.-> OpenAI
+    AIProviders -.-> HF
+```
+
+1. **Data Aggregation:** The Node.js backend continuously aggregates raw data from a user's connected platforms (GitHub, LeetCode, Codeforces, etc.).
 2. **AI Processing:** The Python microservice processes this raw data, leveraging the most appropriate AI model via the LLM Manager, turning raw stats into structured skill scores and readiness metrics.
 3. **Actionable Insights:** The React frontend displays these insights, providing the user with a clear, actionable roadmap, company matches, and an AI mentor to guide their next steps.
