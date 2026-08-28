@@ -19,7 +19,7 @@ export default function Topbar({ activePage, setActivePage, onMenuToggle }) {
   const searchResults = [
     {
       name: "Ecosystem Dashboard",
-      meta: "Overview, Live Telemetry & Activity Stream",
+      meta: "Overview & Activity Stream",
       icon: <LayoutGrid className="w-4 h-4" />,
       onClick: () => { setActivePage?.('dashboard'); setSearchOpen(false); },
     },

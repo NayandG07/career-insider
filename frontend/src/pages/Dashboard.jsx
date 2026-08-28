@@ -207,12 +207,9 @@ export default function Dashboard({ setActivePage }) {
             <h1 className="text-xl sm:text-2xl font-black text-[#111827] tracking-tight">
               Developer Ecosystem Dashboard
             </h1>
-            <span className="text-[10px] font-extrabold bg-[#EEF2FF] text-[#6366F1] px-2 py-0.5 rounded-md uppercase tracking-wider border border-[#E0E7FF]">
-              Live Telemetry
-            </span>
           </div>
           <p className="text-xs text-[#6B7280] font-semibold mt-1">
-            Real-time activity, algorithmic problem-solving telemetry, and cross-platform health.
+            Real-time activity, algorithmic problem-solving status, and cross-platform health.
           </p>
         </div>
 

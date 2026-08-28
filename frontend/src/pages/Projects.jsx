@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { projectService } from '../services/projectService';
 import { githubService } from '../services/githubService';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import GithubRepoPickerModal from '../components/GithubRepoPickerModal';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -695,7 +696,8 @@ function EmptyState() {
 // ─── Main Projects Page ───────────────────────────────────────────────────────
 
 export default function Projects({ setActivePage }) {
-  const { userData } = useApp();
+  const { userData, refreshProjects } = useApp();
+  const { showToast } = useToast();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
@@ -772,6 +774,27 @@ export default function Projects({ setActivePage }) {
     setPrefillProject(repoData);
     setGithubModalOpen(false);
     setModalOpen(true);
+  };
+
+  const handleBatchImportFromGithub = async (repoIds) => {
+    try {
+      const data = await githubService.importRepositories(repoIds);
+      if (data.imported && Array.isArray(data.imported)) {
+        setProjects((prev) => {
+          const importedMap = new Map(data.imported.map((p) => [p.githubRepositoryId, p]));
+          const remaining = prev.filter((p) => !p.githubRepositoryId || !importedMap.has(p.githubRepositoryId));
+          return [...data.imported, ...remaining];
+        });
+      } else {
+        await loadProjects();
+      }
+      refreshProjects?.();
+      showToast?.(`Successfully imported ${repoIds.length} project${repoIds.length === 1 ? '' : 's'} directly from GitHub!`, 'success');
+    } catch (err) {
+      const errMsg = err.response?.data?.error || err.message || 'Failed to import selected repositories.';
+      showToast?.(errMsg, 'error');
+      throw err;
+    }
   };
 
   const handleSave = async (form) => {
@@ -926,6 +949,7 @@ export default function Projects({ setActivePage }) {
         open={githubModalOpen}
         onClose={() => setGithubModalOpen(false)}
         onSelectRepo={handleSelectRepoFromGithub}
+        onBatchImport={handleBatchImportFromGithub}
       />
 
       {/* Delete Confirmation Modal */}
