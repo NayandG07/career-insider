@@ -2,6 +2,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import axios from 'axios';
+import logger from '../utils/logger.js';
 
 // Configure multer for PDF uploads
 const storage = multer.diskStorage({
@@ -39,9 +40,15 @@ export const upload = multer({
  */
 export const uploadResume = async (req, res) => {
   let filePath = null;
+  const resumeTask = logger.startTask('AI RESUME', 'PDF Resume Ingestion & Parsing', {
+    user: req.user.email || req.user._id,
+    fileName: req.file?.originalname || 'N/A',
+    fileSize: req.file?.size ? `${Math.round(req.file.size / 1024)} KB` : 'N/A'
+  });
 
   try {
     if (!req.file) {
+      resumeTask.error(new Error('No file uploaded'), 'No file uploaded');
       return res.status(400).json({ error: 'No file uploaded. Please upload a PDF.' });
     }
 
@@ -55,6 +62,7 @@ export const uploadResume = async (req, res) => {
     const resumeText = pdfData.text;
 
     if (!resumeText || resumeText.trim().length < 50) {
+      resumeTask.error(new Error('Insufficient text in PDF'), 'Insufficient text extracted from PDF');
       return res.status(400).json({ error: 'Could not extract sufficient text from the PDF.' });
     }
 
@@ -68,12 +76,18 @@ export const uploadResume = async (req, res) => {
 
     const extractedData = aiResponse.data;
 
+    resumeTask.success({
+      extractedSkills: extractedData.skills?.length || 0,
+      extractedExperiences: extractedData.experience?.length || 0,
+      extractedEducation: extractedData.education?.length || 0
+    });
+
     res.json({
       message: 'Resume parsed successfully.',
       data: extractedData,
     });
   } catch (error) {
-    console.error('Resume upload error:', error.message);
+    resumeTask.error(error, 'Resume parsing failed');
 
     if (error.response) {
       // AI service returned an error

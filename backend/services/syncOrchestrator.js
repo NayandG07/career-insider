@@ -4,6 +4,7 @@ import Telemetry from '../models/Telemetry.js';
 import { fetchGitHubData } from './githubService.js';
 import { fetchLeetCodeData } from './leetcodeService.js';
 import { fetchCodeforcesData } from './codeforcesService.js';
+import logger from '../utils/logger.js';
 
 /**
  * Sync all connected sources for a single user.
@@ -82,22 +83,22 @@ export async function syncUserSources(user) {
 export function startSyncCron() {
   // Run every 6 hours: at minute 0, every 6th hour
   cron.schedule('0 */6 * * *', async () => {
-    console.log('⏰ [Cron] Starting scheduled sync for all users...');
+    logger.info('CRON', 'Starting scheduled telemetry sync sweep for all users...');
     try {
       const users = await User.find({});
       for (const user of users) {
         try {
           const results = await syncUserSources(user);
-          console.log(`  ✅ Synced user ${user.email || user._id}:`, results);
+          logger.success('CRON', `Synced telemetry for user ${user.email || user._id}`, results);
         } catch (err) {
-          console.error(`  ❌ Sync failed for ${user.email || user._id}:`, err.message);
+          logger.error('CRON', `Sync failed for user ${user.email || user._id}`, err);
         }
       }
-      console.log('⏰ [Cron] Sync complete.');
+      logger.success('CRON', 'Scheduled telemetry sync sweep completed.');
     } catch (err) {
-      console.error('⏰ [Cron] Fatal sync error:', err.message);
+      logger.error('CRON', 'Fatal sync orchestrator error', err);
     }
   });
 
-  console.log('⏰ Sync cron job scheduled (every 6 hours).');
+  logger.info('CRON', 'Background sync scheduler initialized (sweep interval: every 6h)');
 }

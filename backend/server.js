@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import passport from './config/passport.js';
 import connectDB from './config/db.js';
 import { startSyncCron } from './services/syncOrchestrator.js';
+import logger from './utils/logger.js';
 
 // Route imports
 import authRoutes from './routes/authRoutes.js';
@@ -34,6 +35,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(passport.initialize());
+app.use(logger.httpMiddleware);
 
 // ─── API Routes ───────────────────────────────────────────
 app.use('/api/auth', authRoutes);
@@ -123,12 +125,12 @@ const startServer = async () => {
   startSyncCron();
 
   app.listen(PORT, () => {
-    console.log(`🚀 CareerOS Backend running on port ${PORT}`);
-    console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.success('SERVER', `CareerOS API Gateway online and ready on port ${PORT}`);
+    logger.info('SERVER', `Client URL: ${process.env.CLIENT_URL || 'http://localhost:5173'} | AI Service: ${process.env.AI_SERVICE_URL || 'http://localhost:8000'}`);
   });
 };
 
 startServer().catch((err) => {
-  console.error('Failed to start server:', err);
+  logger.error('SERVER', 'Failed to start server', err);
   process.exit(1);
 });

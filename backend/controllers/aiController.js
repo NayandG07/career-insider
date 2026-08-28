@@ -5,6 +5,7 @@ import Roadmap from '../models/Roadmap.js';
 import Project from '../models/Project.js';
 import ChatHistory from '../models/ChatHistory.js';
 import { extractSkillEvidence } from '../utils/skillEvidenceExtractor.js';
+import logger from '../utils/logger.js';
 
 const getAiUrl = () => process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000';
 
@@ -133,6 +134,12 @@ export const analyzeSkills = async (req, res) => {
     // Extract deterministic evidence and 5-dimension scores
     const evidencePackage = extractSkillEvidence({ telemetry, projects });
 
+    const aiTask = logger.startTask('AI SKILLS', 'Skill Analysis', {
+      user: req.user.email || req.user.name,
+      projects: projects.length,
+      sources: Object.keys(telemetry).join(', ') || 'none',
+    });
+
     let profileData = null;
 
     try {
@@ -149,8 +156,13 @@ export const analyzeSkills = async (req, res) => {
         { timeout: 90000 }
       );
       profileData = aiResponse.data;
+      aiTask.success({
+        readinessScore: profileData.readiness_score || 50,
+        skillsCount: profileData.skills?.length || 0,
+        categories: (profileData.categories || []).map(c => `${c.name}: ${c.score}%`).join(' | '),
+      });
     } catch (aiErr) {
-      console.warn('AI Service unavailable for skill analysis, falling back to deterministic calculation:', aiErr.message);
+      aiTask.error(aiErr, 'AI Service unavailable, falling back to deterministic calculation');
       // Construct robust deterministic fallback with confidence and evidenceRefs
       const avgCatScore = Math.round(evidencePackage.categories.reduce((sum, c) => sum + c.score, 0) / Math.max(1, evidencePackage.categories.length));
       profileData = {
@@ -414,6 +426,12 @@ export const generateRoadmap = async (req, res) => {
     const projects = readiness.projects;
     const evidence = extractSkillEvidence({ telemetry, projects });
 
+    const roadmapTask = logger.startTask('ROADMAP', 'Roadmap Generation', {
+      user: req.user.email || req.user.name,
+      targetRoles: targetRoles.join(', '),
+      weeklyHours: `${weeklyHours}h/wk`,
+    });
+
     let roadmapData = null;
 
     try {
@@ -433,8 +451,12 @@ export const generateRoadmap = async (req, res) => {
         { timeout: 90000 }
       );
       roadmapData = aiResponse.data;
+      roadmapTask.success({
+        milestones: roadmapData.milestones?.length || 0,
+        primaryFocus: roadmapData.summary?.primaryFocus?.join(', ') || 'N/A',
+      });
     } catch (aiErr) {
-      console.warn('AI Service unavailable for roadmap, using structured gap-based baseline:', aiErr.message);
+      roadmapTask.error(aiErr, 'AI Service unavailable for roadmap, using structured gap-based baseline');
       const mainRole = targetRoles[0] || 'Software Engineer';
       roadmapData = {
         targetRoles,
@@ -559,6 +581,10 @@ export const generateRoadmap = async (req, res) => {
  * Run the company compatibility matcher.
  */
 export const matchCompanies = async (req, res) => {
+  const matchTask = logger.startTask('AI MATCH', 'Company Matcher', {
+    user: req.user.email || req.user.name,
+  });
+
   try {
     const skillProfile = await SkillProfile.findOne({ userId: req.user._id });
 
@@ -574,9 +600,13 @@ export const matchCompanies = async (req, res) => {
       { timeout: 90000 }
     );
 
+    matchTask.success({
+      matchesCount: aiResponse.data?.matches?.length || 0,
+    });
+
     res.json(aiResponse.data);
   } catch (error) {
-    console.error('Company matching error:', error.message);
+    matchTask.error(error, 'Company matching failed');
     res.status(502).json({ error: 'AI service failed to match companies.' });
   }
 };
@@ -593,6 +623,12 @@ export const mentorChat = async (req, res) => {
     }
 
     const session = sessionId || `session-${Date.now()}`;
+
+    const mentorTask = logger.startTask('AI MENTOR', 'Mentor Chat Response', {
+      user: req.user.email || req.user.name,
+      session: session.slice(-8),
+      promptLen: `${message.length} chars`,
+    });
 
     let chatDoc = await ChatHistory.findOne({ userId: req.user._id, sessionId: session });
     const existingMessages = chatDoc?.messages || [];
@@ -615,6 +651,10 @@ export const mentorChat = async (req, res) => {
 
     const mentorReply = aiResponse.data.response || '';
 
+    mentorTask.success({
+      responseLen: `${mentorReply.length} chars`,
+    });
+
     const newMessages = [
       { sender: 'user', text: message, timestamp: new Date() },
       { sender: 'mentor', text: mentorReply, timestamp: new Date() },
@@ -633,7 +673,7 @@ export const mentorChat = async (req, res) => {
 
     res.json({ sessionId: session, response: mentorReply });
   } catch (error) {
-    console.error('Mentor chat error:', error.message);
+    logger.error('AI MENTOR', 'Mentor chat failed', error);
     res.status(502).json({ error: 'AI mentor is currently unavailable.' });
   }
 };

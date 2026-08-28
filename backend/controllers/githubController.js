@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import Project from '../models/Project.js';
+import logger from '../utils/logger.js';
 
 /**
  * Helper to fetch from GitHub API using the authenticated user's OAuth access token.
@@ -84,12 +85,14 @@ export const getRepositories = async (req, res) => {
       alreadyImported: importedSet.has(repo.id),
     }));
 
+    logger.info('GITHUB', `Fetching repositories for user: ${user.email || req.user._id} (account: @${githubUsername})`);
+
     res.json({
       username: githubUsername,
       repositories: normalizedRepos,
     });
   } catch (error) {
-    console.error('Fetch GitHub repositories error:', error);
+    logger.error('GITHUB', 'Fetch GitHub repositories failed', error);
     res.status(500).json({ error: error.message || 'Failed to fetch GitHub repositories.' });
   }
 };
@@ -113,11 +116,17 @@ export const importRepositories = async (req, res) => {
       return res.status(400).json({ error: 'GitHub account is not connected.' });
     }
 
+    const importTask = logger.startTask('GITHUB', 'Batch Import Repositories', {
+      user: user.email || user._id,
+      selectedCount: repoIds.length,
+    });
+
     // Fetch user's repos via authenticated token to ensure ownership/access
     const githubRepos = await fetchGithubApi('/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator', accessToken);
     const selectedRepos = githubRepos.filter((r) => repoIds.includes(r.id));
 
     if (selectedRepos.length === 0) {
+      importTask.error(new Error('No matching repos found'), 'No matching repositories found to import');
       return res.status(404).json({ error: 'No matching repositories found to import.' });
     }
 
@@ -151,12 +160,17 @@ export const importRepositories = async (req, res) => {
       importedProjects.push(updatedProject);
     }
 
+    importTask.success({
+      importedCount: importedProjects.length,
+      repos: importedProjects.map(p => p.title).join(', ')
+    });
+
     res.status(200).json({
       message: `Successfully imported ${importedProjects.length} repository project(s).`,
       imported: importedProjects,
     });
   } catch (error) {
-    console.error('Import GitHub repositories error:', error);
+    logger.error('GITHUB', 'Import GitHub repositories failed', error);
     res.status(500).json({ error: error.message || 'Failed to import GitHub repositories.' });
   }
 };
