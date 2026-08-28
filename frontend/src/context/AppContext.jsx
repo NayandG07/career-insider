@@ -188,17 +188,18 @@ export const AppProvider = ({ children }) => {
     return res.matches;
   };
 
-  const addMentorMessage = async (text, sessionId) => {
-    const userMsg = { sender: 'user', text };
+  const addMentorMessage = async (text, sessionId, taggedContext = null, coachMode = 'general') => {
+    const userMsg = { sender: 'user', text, taggedContext, timestamp: new Date() };
     setConversation(prev => [...prev, userMsg]);
 
     try {
-      const res = await aiService.mentorChat(text, sessionId);
-      setConversation(prev => [...prev, { sender: 'ai', text: res.response }]);
-      return res.sessionId;
+      const res = await aiService.mentorChat(text, sessionId, taggedContext, coachMode);
+      setConversation(prev => [...prev, { sender: 'ai', text: res.response, timestamp: new Date() }]);
+      return res;
     } catch (e) {
       console.error(e);
-      setConversation(prev => [...prev, { sender: 'ai', text: 'Error reaching mentor.' }]);
+      setConversation(prev => [...prev, { sender: 'ai', text: 'Sorry, the AI Mentor encountered a temporary issue. Please try again in a moment.', timestamp: new Date() }]);
+      throw e;
     }
   };
 

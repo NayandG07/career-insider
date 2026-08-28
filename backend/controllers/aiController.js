@@ -163,7 +163,7 @@ export const analyzeSkills = async (req, res) => {
       });
     } catch (aiErr) {
       aiTask.error(aiErr, 'AI Service unavailable, falling back to deterministic calculation');
-      // Construct robust deterministic fallback with confidence and evidenceRefs
+      // Construct robust deterministic fallback with confidence and evidenceRefs from candidateSkills
       const avgCatScore = Math.round(evidencePackage.categories.reduce((sum, c) => sum + c.score, 0) / Math.max(1, evidencePackage.categories.length));
       profileData = {
         readiness_score: Math.min(95, Math.max(25, avgCatScore)),
@@ -174,27 +174,21 @@ export const analyzeSkills = async (req, res) => {
           score: c.score,
           level: c.level,
           dimensions: c.dimensions,
-          skills: c.skills.map(s => s.name),
+          skills: c.skills,
         })),
-        skills: Object.entries(evidencePackage.skillEvidenceMap).map(([name, evList]) => {
-          const count = evList.length;
-          const level = count >= 4 ? 'Strong' : count >= 2 ? 'Developing' : 'Emerging';
-          const confidence = count >= 3 ? 'High' : count >= 2 ? 'Moderate' : 'Low';
-          const evStrength = Math.min(95, Math.max(20, count * 22));
-          return {
-            name,
-            category: 'Verified Skills',
-            level,
-            confidence,
-            evidenceStrength: evStrength,
-            evidenceCount: count,
-            evidenceSummary: `${count} verified data points across ${evList.map(e => e.source).join(', ')}`,
-            evidenceRefs: evList.map(e => e.id),
-            explanation: `Consistent verified technical activity across ${[...new Set(evList.map(e => e.source))].join(', ')}.`,
-            whyItMatters: 'Foundational criteria evaluated in software engineering technical interviews.',
-            focusNext: 'Continue building showcase features and solving algorithmic pattern variations.',
-          };
-        }),
+        skills: (evidencePackage.candidateSkills || []).map(s => ({
+          name: s.name,
+          category: s.category,
+          level: s.level,
+          confidence: s.confidence,
+          evidenceStrength: s.evidenceStrength,
+          evidenceCount: s.evidenceCount,
+          evidenceSummary: s.evidenceSummary,
+          evidenceRefs: s.evidenceRefs,
+          explanation: s.explanation,
+          whyItMatters: s.whyItMatters,
+          focusNext: s.focusNext,
+        })),
         gap_analysis: [
           {
             name: 'System Observability & Load Benchmarks',
@@ -617,7 +611,7 @@ export const matchCompanies = async (req, res) => {
  */
 export const mentorChat = async (req, res) => {
   try {
-    const { message, sessionId } = req.body;
+    const { message, sessionId, taggedContext, coachMode } = req.body;
     if (!message) {
       return res.status(400).json({ error: 'message is required.' });
     }
@@ -628,12 +622,18 @@ export const mentorChat = async (req, res) => {
       user: req.user.email || req.user.name,
       session: session.slice(-8),
       promptLen: `${message.length} chars`,
+      coachMode: coachMode || 'general',
+      hasTags: Boolean(taggedContext && Object.keys(taggedContext).length > 0),
     });
 
     let chatDoc = await ChatHistory.findOne({ userId: req.user._id, sessionId: session });
     const existingMessages = chatDoc?.messages || [];
 
-    const skillProfile = await SkillProfile.findOne({ userId: req.user._id });
+    const [skillProfile, roadmap, projects] = await Promise.all([
+      SkillProfile.findOne({ userId: req.user._id }),
+      Roadmap.findOne({ userId: req.user._id }),
+      Project.find({ userId: req.user._id }).select('title technologies repositoryUrl liveUrl'),
+    ]);
 
     const aiResponse = await axios.post(
       `${getAiUrl()}/ai/mentor/chat`,
@@ -642,8 +642,13 @@ export const mentorChat = async (req, res) => {
         chat_history: existingMessages.map((m) => ({ role: m.sender, content: m.text })),
         user_context: {
           name: req.user.name,
-          readinessScore: req.user.readinessScore,
+          readinessScore: req.user.readinessScore || skillProfile?.readinessScore || 50,
+          target_roles: roadmap?.targetRoles || [req.user?.targetRole || 'Full-Stack Software Engineer'],
           skill_profile: skillProfile ? skillProfile.toObject() : {},
+          roadmap: roadmap ? roadmap.toObject() : {},
+          projects: projects ? projects.map(p => p.toObject()) : [],
+          tagged_context: taggedContext || null,
+          coach_mode: coachMode || 'general',
         },
       },
       { timeout: 60000 }
@@ -675,6 +680,38 @@ export const mentorChat = async (req, res) => {
   } catch (error) {
     logger.error('AI MENTOR', 'Mentor chat failed', error);
     res.status(502).json({ error: 'AI mentor is currently unavailable.' });
+  }
+};
+
+/**
+ * GET /api/ai/mentor/history
+ * Retrieve message history for active session or all sessions.
+ */
+export const getMentorHistory = async (req, res) => {
+  try {
+    const { sessionId } = req.query;
+    if (sessionId) {
+      const chatDoc = await ChatHistory.findOne({ userId: req.user._id, sessionId });
+      return res.json({ messages: chatDoc?.messages || [] });
+    }
+    const sessions = await ChatHistory.find({ userId: req.user._id }).sort({ updatedAt: -1 }).limit(10);
+    res.json({ sessions });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch mentor history.' });
+  }
+};
+
+/**
+ * DELETE /api/ai/mentor/history/:sessionId
+ * Delete a specific chat session.
+ */
+export const clearMentorSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    await ChatHistory.deleteOne({ userId: req.user._id, sessionId });
+    res.json({ message: 'Session cleared.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to clear session.' });
   }
 };
 

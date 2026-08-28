@@ -88,19 +88,58 @@ async def analyze_skills(evidence_package: Dict[str, Any]) -> SkillProfile:
 
     raw_metrics = evidence_package.get("rawMetrics", {})
     categories_input = evidence_package.get("categories", [])
+    candidate_skills = evidence_package.get("candidateSkills", [])
     evidence_items = evidence_package.get("evidenceItems", [])
     source_contributions = evidence_package.get("sourceContributions", {})
 
+    # Fallback to build candidate skills from skillEvidenceMap if candidateSkills is empty
+    if not candidate_skills and "skillEvidenceMap" in evidence_package:
+        for skill_name, ev_list in evidence_package["skillEvidenceMap"].items():
+            sources = list({e.get("source") for e in ev_list if e.get("source")})
+            count = len(ev_list)
+            candidate_skills.append({
+                "name": skill_name,
+                "category": "General",
+                "level": "Strong" if count >= 3 else "Developing" if count == 2 else "Emerging",
+                "confidence": "High" if len(sources) >= 2 or count >= 3 else "Moderate",
+                "evidenceStrength": min(95, max(25, count * 22)),
+                "evidenceCount": count,
+                "evidenceSummary": f"{count} data points across {', '.join(sources)}",
+                "evidenceRefs": [e.get("id") for e in ev_list if e.get("id")],
+                "sources": sources,
+                "explanation": f"Verified activity in {skill_name}.",
+                "whyItMatters": f"Practical ability in {skill_name}.",
+                "focusNext": f"Deepen experience in {skill_name}.",
+            })
+
+    # Select prominent candidate skills (top 18) for deep LLM interpretation
+    skills_for_prompt = []
+    for s in candidate_skills[:18]:
+        skills_for_prompt.append({
+            "name": s.get("name"),
+            "category": s.get("category", "General"),
+            "evidenceStrength": s.get("evidenceStrength", 50),
+            "evidenceCount": s.get("evidenceCount", 1),
+            "evidenceSummary": s.get("evidenceSummary", ""),
+            "evidenceRefs": s.get("evidenceRefs", []),
+            "sources": s.get("sources", []),
+        })
+
     prompt = f"""You are CareerOS Skill Intelligence Engine v2.
-You are given verified platform metrics, deterministic 5-dimension scores, and traceable evidence items.
+You are given verified platform metrics, deterministic 5-dimension scores, and candidate skill evidence records.
 
 CRITICAL ARCHITECTURE RULES:
 1. PRESERVE the deterministic category names, scores (0-100), and dimensional calculations from the input.
-2. DO NOT hallucinate fake raw numbers or percentages.
-3. Assign qualitative levels ('Advanced Evidence', 'Strong', 'Developing', 'Emerging', 'Insufficient Evidence').
-4. Assign confidence ('High', 'Moderate', 'Low') based on cross-source corroboration and data density.
-5. Provide clear, student-friendly 'whyItMatters' and actionable 'focusNext' (next concrete evidence to build).
-6. Prioritize real gaps tied to the user's missing practical or algorithmic evidence.
+2. Evaluate and return an entry in "skills" for each of the Candidate Skills provided below.
+3. For EACH candidate skill:
+   - PRESERVE the exact "name", "category", "evidenceStrength", "evidenceCount", and "evidenceRefs" from the input.
+   - Refine "level" ('Advanced Evidence', 'Strong', 'Developing', 'Emerging').
+   - Refine "confidence" ('High', 'Moderate', 'Low') based on cross-source corroboration and data density.
+   - Provide a concise 1-sentence "explanation" explaining what evidence proves this skill.
+   - Provide a concise 1-sentence "whyItMatters" explaining why this skill is valued in software engineering evaluations.
+   - Provide a concise 1-sentence "focusNext" (next concrete evidence or project milestone to build).
+4. In "gap_analysis", provide 2-3 genuine industry skill gaps (e.g. System Observability, Unit Testing, Load Benchmarking) tied to the user's stack. These MUST NOT be in the "skills" list.
+5. Return ONLY a valid JSON object matching this schema (no markdown, no other text):
 
 Verified Raw Metrics:
 {json.dumps(raw_metrics)}
@@ -108,10 +147,10 @@ Verified Raw Metrics:
 Deterministic Categories & 5-Dimension Scores:
 {json.dumps(categories_input)}
 
-Traceable Evidence Items:
-{json.dumps(evidence_items[:30])}
+Candidate Skills to Evaluate ({len(skills_for_prompt)} items):
+{json.dumps(skills_for_prompt)}
 
-Return ONLY a valid JSON object matching this schema (no markdown, no other text):
+JSON Schema:
 {{
     "readiness_score": 68,
     "categories": [
@@ -155,15 +194,81 @@ Return ONLY a valid JSON object matching this schema (no markdown, no other text
         json_str = _extract_json(result)
         data = json.loads(json_str)
 
-        # Sanitize categories preserving input dimensions
+        # Build candidate skill lookup for fallback merging
+        candidate_map = {s["name"].lower(): s for s in candidate_skills}
+
+        # Sanitize AI skills
+        ai_skills = []
+        seen_skill_names = set()
+
+        for s in data.get("skills", []):
+            s_name = str(s.get("name", "")).strip()
+            if not s_name:
+                continue
+
+            lower_name = s_name.lower()
+            seen_skill_names.add(lower_name)
+
+            # Match against deterministic candidate if exists to preserve accurate metrics
+            base = candidate_map.get(lower_name, {})
+            cat = str(s.get("category") or base.get("category") or "General")
+            ev_strength = int(float(str(s.get("evidenceStrength") or base.get("evidenceStrength") or 50)))
+            ev_count = int(float(str(s.get("evidenceCount") or base.get("evidenceCount") or 1)))
+            ev_summary = str(s.get("evidenceSummary") or base.get("evidenceSummary") or "")
+            ev_refs = [str(r) for r in (s.get("evidenceRefs") or base.get("evidenceRefs") or [])]
+            level = str(s.get("level") or base.get("level") or "Developing")
+            confidence = str(s.get("confidence") or base.get("confidence") or "Moderate")
+
+            ai_skills.append(TraceableSkill(
+                name=s_name,
+                category=cat,
+                level=level,
+                confidence=confidence,
+                evidenceStrength=ev_strength,
+                evidenceCount=ev_count,
+                evidenceSummary=ev_summary,
+                evidenceRefs=ev_refs,
+                explanation=str(s.get("explanation") or base.get("explanation") or f"Demonstrated competency in {s_name}."),
+                whyItMatters=str(s.get("whyItMatters") or base.get("whyItMatters") or f"Core capability in {cat}."),
+                focusNext=str(s.get("focusNext") or base.get("focusNext") or f"Continue practical implementation and pattern variations in {s_name}."),
+            ))
+
+        # Merge any candidate skills that the LLM missed so no candidate skill is dropped
+        for cand in candidate_skills:
+            cand_name = cand["name"].strip()
+            if cand_name.lower() not in seen_skill_names:
+                ai_skills.append(TraceableSkill(
+                    name=cand_name,
+                    category=cand.get("category", "General"),
+                    level=cand.get("level", "Developing"),
+                    confidence=cand.get("confidence", "Moderate"),
+                    evidenceStrength=int(cand.get("evidenceStrength", 50)),
+                    evidenceCount=int(cand.get("evidenceCount", 1)),
+                    evidenceSummary=str(cand.get("evidenceSummary", "")),
+                    evidenceRefs=[str(r) for r in cand.get("evidenceRefs", [])],
+                    explanation=str(cand.get("explanation", f"Demonstrated competency in {cand_name}.")),
+                    whyItMatters=str(cand.get("whyItMatters", f"Important domain skill in {cand.get('category', 'General')}.")),
+                    focusNext=str(cand.get("focusNext", f"Continue building practical evidence in {cand_name}.")),
+                ))
+
+        # Sort all skills deterministically by evidenceStrength descending, then count, then name
+        ai_skills.sort(key=lambda x: (-x.evidenceStrength, -x.evidenceCount, x.name.lower()))
+
+        # Sanitize categories preserving input dimensions and mapping final skill names
         categories = []
         input_cat_map = {c.get("name"): c for c in categories_input}
-        for c in data.get("categories", []):
-            c_name = str(c.get("name", "General"))
-            input_match = input_cat_map.get(c_name, {})
-            score = int(input_match.get("score", c.get("score", 50)))
-            level = str(input_match.get("level", c.get("level", "Developing")))
-            dims_data = input_match.get("dimensions", {})
+        
+        # Build category skills mapping from final sorted skills
+        cat_skills_map = {}
+        for sk in ai_skills:
+            cat_skills_map.setdefault(sk.category, []).append(sk.name)
+
+        for c_input in categories_input:
+            c_name = str(c_input.get("name", "General"))
+            score = int(c_input.get("score", 50))
+            level = str(c_input.get("level", "Developing"))
+            dims_data = c_input.get("dimensions", {})
+            assigned_skills = cat_skills_map.get(c_name, c_input.get("skills", []))
 
             categories.append(CategoryScore(
                 name=c_name,
@@ -176,24 +281,7 @@ Return ONLY a valid JSON object matching this schema (no markdown, no other text
                     application=int(dims_data.get("application", 0)),
                     corroboration=int(dims_data.get("corroboration", 0)),
                 ),
-                skills=[str(s) for s in c.get("skills", [])],
-            ))
-
-        # Sanitize skills with confidence and evidenceRefs
-        skills = []
-        for s in data.get("skills", []):
-            skills.append(TraceableSkill(
-                name=str(s.get("name", "Skill")),
-                category=str(s.get("category", "General")),
-                level=str(s.get("level", "Developing")),
-                confidence=str(s.get("confidence", "Moderate")),
-                evidenceStrength=int(float(str(s.get("evidenceStrength", 50)))),
-                evidenceCount=int(float(str(s.get("evidenceCount", 1)))),
-                evidenceSummary=str(s.get("evidenceSummary", "")),
-                evidenceRefs=[str(r) for r in s.get("evidenceRefs", [])],
-                explanation=str(s.get("explanation", "")),
-                whyItMatters=str(s.get("whyItMatters", "")),
-                focusNext=str(s.get("focusNext", "")),
+                skills=[str(s) for s in assigned_skills],
             ))
 
         # Sanitize gaps
@@ -215,7 +303,7 @@ Return ONLY a valid JSON object matching this schema (no markdown, no other text
             score_version=2,
             scoring_model="v2-5dim",
             categories=categories,
-            skills=skills,
+            skills=ai_skills,
             gap_analysis=gaps,
             source_contributions=source_contributions,
         )

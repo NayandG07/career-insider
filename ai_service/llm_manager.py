@@ -110,7 +110,7 @@ class LLMManager:
         payload = {
             "model": hf_model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 2048,
+            "max_tokens": 4096,
             "temperature": 0.7,
             "stream": False
         }
@@ -131,9 +131,14 @@ class LLMManager:
             if response.status_code == 200:
                 result = response.json()
                 if "choices" in result and len(result["choices"]) > 0:
-                    content = result["choices"][0]["message"]["content"]
-                    if content is not None:
+                    choice = result["choices"][0]
+                    message = choice.get("message", {})
+                    content = message.get("content")
+                    if content and content.strip():
                         return content.strip()
+                    # If finish_reason is length or content is empty
+                    finish_reason = choice.get("finish_reason", "unknown")
+                    raise RuntimeError(f"HuggingFace model '{hf_model}' returned empty content (finish_reason: {finish_reason})")
                 raise RuntimeError(f"HuggingFace router returned empty choices: {result}")
 
             # Error sanitization
@@ -170,8 +175,11 @@ class LLMManager:
                         logger.error(f"Unknown provider '{provider}'")
                         return None
 
-                    logger.info(f"Provider '{provider}' succeeded on attempt {attempt + 1}.")
-                    return result
+                    if result and result.strip():
+                        logger.info(f"Provider '{provider}' succeeded on attempt {attempt + 1}.")
+                        return result.strip()
+                    else:
+                        logger.warning(f"Provider '{provider}' returned empty output on attempt {attempt + 1}.")
 
                 except Exception as e:
                     error_msg = str(e).lower()
@@ -195,7 +203,7 @@ class LLMManager:
         """
         Invokes the configured LLM for a task.
         Reads config from DB (aiconfigs collection), tries primary provider,
-        then falls back through the fallbackChain.
+        then falls back through the fallbackChain and standard provider list.
         """
         config = await self._get_task_config(task)
         logger.info(
@@ -203,21 +211,33 @@ class LLMManager:
             f"fallbacks={config.fallbackChain}"
         )
 
+        tried_providers = set()
+
         # 1. Try primary provider with its configured model
+        tried_providers.add(config.primaryProvider)
         result = await self._try_provider(config.primaryProvider, config.primaryModel, prompt)
-        if result:
+        if result and result.strip():
             return result
 
-        # 2. Iterate through fallback providers
-        # Note: pass "" so each provider uses its own sensible default
+        # 2. Iterate through configured fallback providers
         for fallback_provider in config.fallbackChain:
-            if fallback_provider == config.primaryProvider:
+            if fallback_provider in tried_providers:
                 continue
+            tried_providers.add(fallback_provider)
             logger.info(f"Falling back to '{fallback_provider}' for task '{task}'")
-            # Use primary model only if provider matches, otherwise let each invoker use its default
             fallback_model = config.primaryModel if fallback_provider == config.primaryProvider else ""
             result = await self._try_provider(fallback_provider, fallback_model, prompt)
-            if result:
+            if result and result.strip():
+                return result
+
+        # 3. Last-resort fallback to any remaining standard providers
+        all_standard_providers = ["gemini", "openai", "huggingface"]
+        for provider in all_standard_providers:
+            if provider in tried_providers:
+                continue
+            logger.info(f"Trying remaining fallback provider '{provider}' for task '{task}'")
+            result = await self._try_provider(provider, "", prompt)
+            if result and result.strip():
                 return result
 
         raise RuntimeError(f"All providers failed for task '{task}'")

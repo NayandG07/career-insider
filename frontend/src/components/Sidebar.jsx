@@ -1,13 +1,13 @@
 import React from 'react';
-import { 
-  LayoutGrid, 
-  Compass, 
-  Layers, 
-  Briefcase, 
-  FolderGit2, 
-  BookOpen, 
-  Sparkles, 
-  BarChart3, 
+import {
+  LayoutGrid,
+  Compass,
+  Layers,
+  Briefcase,
+  FolderGit2,
+  BookOpen,
+  Sparkles,
+  BarChart3,
   Settings as SettingsIcon,
   ChevronLeft,
   ChevronRight,
@@ -51,17 +51,15 @@ function NavItems({ items, activePage, setActivePage, collapsed, onSelect }) {
             onClick={() => handleItemClick(item)}
             whileHover={{ x: 2 }}
             whileTap={{ scale: 0.98 }}
-            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-150 relative cursor-pointer group ${
-              isActive
+            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-150 relative cursor-pointer group ${isActive
                 ? 'bg-[#F3F4F6]/50 text-[#7C3AED]'
                 : 'text-[#4B5563] hover:bg-[#F9FAFB] hover:text-[#111827]'
-            }`}
+              }`}
             title={collapsed ? item.name : undefined}
           >
             <div className="flex items-center gap-3">
-              <Icon className={`w-5 h-5 shrink-0 ${
-                isActive ? 'text-[#7C3AED]' : 'text-[#9CA3AF] group-hover:text-[#4B5563]'
-              }`} />
+              <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-[#7C3AED]' : 'text-[#9CA3AF] group-hover:text-[#4B5563]'
+                }`} />
               {!collapsed && <span>{item.name}</span>}
             </div>
 
@@ -86,14 +84,12 @@ export function DesktopSidebar({ activePage, setActivePage, collapsed, setCollap
 
   return (
     <div
-      className={`fixed top-0 left-0 h-screen bg-white border-r border-[#E5E9F0] flex flex-col z-30 transition-all duration-300 ${
-        collapsed ? 'w-20' : 'w-[260px]'
-      }`}
+      className={`fixed top-0 left-0 h-screen bg-white border-r border-[#E5E9F0] flex flex-col z-30 transition-all duration-300 ${collapsed ? 'w-20' : 'w-[260px]'
+        }`}
     >
       {/* Top Header */}
-      <div className={`h-[72px] flex items-center border-b border-[#E5E9F0] shrink-0 ${
-        collapsed ? 'justify-center px-0' : 'justify-between px-5'
-      }`}>
+      <div className={`h-[72px] flex items-center border-b border-[#E5E9F0] shrink-0 ${collapsed ? 'justify-center px-0' : 'justify-between px-5'
+        }`}>
         {collapsed ? (
           /* Collapsed: ONLY the uncollapse/expand button, centered */
           <button
@@ -116,9 +112,6 @@ export function DesktopSidebar({ activePage, setActivePage, collapsed, setCollap
               </motion.div>
               <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
                 <span className="font-bold text-base text-[#111827] tracking-tight">CareerOS</span>
-                <span className="text-[8px] font-bold bg-[#EEF2FF] text-[#6366F1] px-1 py-0.5 rounded uppercase tracking-wider animate-pulse shrink-0">
-                  AI NATIVE
-                </span>
               </div>
             </div>
 
@@ -149,9 +142,8 @@ export function DesktopSidebar({ activePage, setActivePage, collapsed, setCollap
           onClick={logout}
           whileHover={{ x: collapsed ? 0 : 2 }}
           whileTap={{ scale: 0.98 }}
-          className={`w-full flex items-center px-4 py-2.5 rounded-xl text-[13px] font-semibold text-[#EF4444] hover:bg-red-50 hover:text-red-600 transition-all duration-150 relative cursor-pointer group ${
-            collapsed ? 'justify-center' : 'gap-3'
-          }`}
+          className={`w-full flex items-center px-4 py-2.5 rounded-xl text-[13px] font-semibold text-[#EF4444] hover:bg-red-50 hover:text-red-600 transition-all duration-150 relative cursor-pointer group ${collapsed ? 'justify-center' : 'gap-3'
+            }`}
           title={collapsed ? "Log Out" : undefined}
         >
           <LogOut className="w-5 h-5 shrink-0 text-[#EF4444] group-hover:text-red-600" />

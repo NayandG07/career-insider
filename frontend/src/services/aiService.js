@@ -26,8 +26,18 @@ export const aiService = {
     return res.data;
   },
 
-  mentorChat: async (message, sessionId = null) => {
-    const res = await api.post('/ai/mentor/chat', { message, sessionId });
+  mentorChat: async (message, sessionId = null, taggedContext = null, coachMode = 'general') => {
+    const res = await api.post('/ai/mentor/chat', { message, sessionId, taggedContext, coachMode });
+    return res.data;
+  },
+
+  getMentorHistory: async (sessionId = null) => {
+    const res = await api.get('/ai/mentor/history', { params: { sessionId } });
+    return res.data;
+  },
+
+  clearMentorSession: async (sessionId) => {
+    const res = await api.delete(`/ai/mentor/history/${sessionId}`);
     return res.data;
   },
 
