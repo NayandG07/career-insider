@@ -472,4 +472,4 @@ To fulfill this vision, CareerOS has adopted a modern, multi-service architectur
 - **Node.js Express Backend:** The primary API server handling user authentication, data persistence, and scheduled telemetry fetching from external platforms (GitHub, LeetCode, etc.).
 - **Python FastAPI Microservice:** A dedicated AI engine managing LLM inferences, API key rotation, provider fallback chains, and executing core AI workflows (like resume parsing and skill analysis).
 
-For complete details on the architecture and the core problems we solve, refer to the [Project Documentation](./PROJECT_DOCUMENTATION.md) and the [Implementation Plan](./IMPLEMENTATION_PLAN.md).
+For complete details on the architecture and the core problems we solve, refer to the [Project Documentation](./PROJECT_DOCUMENTATION.md) and the [System Architecture](./ARCHITECTURE.md).

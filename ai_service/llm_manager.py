@@ -78,7 +78,8 @@ class LLMManager:
             contents=prompt,
             config=genai_types.GenerateContentConfig(
                 max_output_tokens=4096,
-                temperature=0.7,
+                temperature=0.4,
+                response_mime_type="application/json",
             )
         )
         return response.text
@@ -96,7 +97,7 @@ class LLMManager:
         """
         Hugging Face Router API (OpenAI-compatible) via async httpx.
         Supports standard models and explicit model:provider syntax.
-        Includes 503 cold-start handling with automatic 15s retry and HTML error sanitization.
+        Includes 503 cold-start handling with automatic 10s retry and HTML error sanitization.
         """
         hf_model = (model_name.strip()
                     if model_name and model_name.strip()
@@ -110,21 +111,22 @@ class LLMManager:
         payload = {
             "model": hf_model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 4096,
-            "temperature": 0.7,
+            "max_tokens": 3500,
+            "temperature": 0.4,
             "stream": False
         }
 
-        timeout_seconds = 90.0
-        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+        # Structured timeout: quick connect, long read for large 72B models
+        hf_timeout = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=5.0)
+        async with httpx.AsyncClient(timeout=hf_timeout) as client:
             response = await client.post(url, headers=headers, json=payload)
 
             # Handle 503 Cold Start (model spinning up)
             if response.status_code == 503:
                 logger.warning(
-                    f"503 received for {hf_model} — model is cold-starting on HuggingFace router. Waiting 15s before retry..."
+                    f"503 received for {hf_model} — model is cold-starting on HuggingFace router. Waiting 10s before retry..."
                 )
-                await asyncio.sleep(15)
+                await asyncio.sleep(10)
                 logger.info(f"Retrying {hf_model} after 503 cold-start wait...")
                 response = await client.post(url, headers=headers, json=payload)
 
@@ -149,8 +151,6 @@ class LLMManager:
                 error_msg = f"Hugging Face Router API error ({response.status_code}): {error_text[:200]}"
 
             raise RuntimeError(error_msg)
-
-
 
     async def _try_provider(self, provider: str, model_name: str, prompt: str) -> Optional[str]:
         keys = await self._get_api_keys(provider)
@@ -182,8 +182,10 @@ class LLMManager:
                         logger.warning(f"Provider '{provider}' returned empty output on attempt {attempt + 1}.")
 
                 except Exception as e:
-                    error_msg = str(e).lower()
-                    logger.error(f"Provider '{provider}' attempt {attempt + 1} failed: {e}")
+                    # Always log the exception type — some exceptions (e.g. httpx.ReadTimeout) have empty str()
+                    error_detail = str(e) if str(e).strip() else type(e).__name__
+                    error_msg = error_detail.lower()
+                    logger.error(f"Provider '{provider}' attempt {attempt + 1} failed: [{type(e).__name__}] {str(e) or '(no message)'}")
 
                     if "429" in error_msg or "rate limit" in error_msg or "quota" in error_msg:
                         if attempt < max_retries - 1:

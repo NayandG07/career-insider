@@ -37,10 +37,9 @@ const MODEL_PRESETS = {
   ],
   huggingface: [
     'Qwen/Qwen2.5-72B-Instruct',
-    'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B',
     'meta-llama/Llama-3.3-70B-Instruct',
+    'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B',
     'mistralai/Mistral-Small-24B-Instruct-2501',
-    'ibm-granite/granite-4.2-30b:deepinfra',
   ],
 };
 
@@ -376,7 +375,7 @@ function ModelConfig({ configs, onRefresh }) {
     setEditingTask(c.task);
     setEditProvider(c.primaryProvider || 'gemini');
     setEditModel(c.primaryModel || '');
-    setEditFallbacks(c.fallbackProviders || []);
+    setEditFallbacks(c.fallbackChain || c.fallbackProviders || []);
   };
 
   const cancelEdit = () => {
@@ -397,7 +396,7 @@ function ModelConfig({ configs, onRefresh }) {
       await adminService.updateAiConfig(task, {
         primaryProvider: editProvider,
         primaryModel: editModel.trim(),
-        fallbackProviders: editFallbacks,
+        fallbackChain: editFallbacks,
       });
       setEditingTask(null);
       await onRefresh();
@@ -452,11 +451,11 @@ function ModelConfig({ configs, onRefresh }) {
                 <span className="font-mono text-[11px] text-[#7C3AED]">{c.primaryModel}</span>
               </div>
 
-              {c.fallbackProviders && c.fallbackProviders.length > 0 && (
+              {(c.fallbackChain || c.fallbackProviders || []).length > 0 && (
                 <div className="flex items-center gap-1 text-xs text-[#6B7280] font-semibold">
                   <ArrowRight className="w-3 h-3 text-[#9CA3AF]" />
                   <span className="text-[10px] uppercase font-bold text-[#9CA3AF]">Fallbacks:</span>
-                  {c.fallbackProviders.map(fb => (
+                  {(c.fallbackChain || c.fallbackProviders || []).map(fb => (
                     <ProviderBadge key={fb} provider={fb} />
                   ))}
                 </div>
@@ -519,7 +518,8 @@ function ModelConfig({ configs, onRefresh }) {
                           const newP = e.target.value;
                           setEditProvider(newP);
                           const presets = MODEL_PRESETS[newP] || [];
-                          if (presets.length > 0) setEditModel(presets[0]);
+                          const newModel = presets.length > 0 ? presets[0] : '';
+                          setEditModel(newModel);
                         }}
                         className="w-full bg-[#F9FAFB] border border-[#E5E9F0] rounded-xl px-3 py-2.5 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#7C3AED]"
                       >
@@ -535,11 +535,13 @@ function ModelConfig({ configs, onRefresh }) {
                         value={(MODEL_PRESETS[editProvider] || []).includes(editModel) ? editModel : '__custom__'}
                         onChange={(e) => {
                           const val = e.target.value;
+                          let newModel;
                           if (val === '__custom__') {
-                            setEditModel(editModel && !(MODEL_PRESETS[editProvider] || []).includes(editModel) ? editModel : '');
+                            newModel = editModel && !(MODEL_PRESETS[editProvider] || []).includes(editModel) ? editModel : '';
                           } else {
-                            setEditModel(val);
+                            newModel = val;
                           }
+                          setEditModel(newModel);
                         }}
                         className="w-full bg-[#F9FAFB] border border-[#E5E9F0] rounded-xl px-3 py-2.5 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#7C3AED]"
                       >
@@ -553,7 +555,7 @@ function ModelConfig({ configs, onRefresh }) {
                     </div>
                   </div>
 
-                  {/* Custom Model Input (shown if Custom option is chosen or if model is not in standard presets) */}
+                  {/* Custom Model Input */}
                   {(!(MODEL_PRESETS[editProvider] || []).includes(editModel) || editModel === '') && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
@@ -569,7 +571,7 @@ function ModelConfig({ configs, onRefresh }) {
                         onChange={e => setEditModel(e.target.value)}
                         placeholder={
                           editProvider === 'huggingface'
-                            ? "e.g. ibm-granite/granite-4.2-30b:deepinfra or mistralai/Mixtral-8x7B"
+                            ? "e.g. meta-llama/Llama-3.3-70B-Instruct or mistralai/Mixtral-8x7B"
                             : editProvider === 'openai'
                               ? "e.g. o1-preview or custom-ft-model"
                               : "e.g. gemini-1.5-pro-exp"
