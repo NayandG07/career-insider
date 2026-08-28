@@ -98,6 +98,8 @@ export default function Dashboard({ setActivePage }) {
           .then(res => { if (res?.data) setGhData(res.data); })
           .catch(() => {});
       }
+    } else {
+      setGhData(null);
     }
   }, [userData, telemetry]);
 
@@ -114,6 +116,9 @@ export default function Dashboard({ setActivePage }) {
       }
       if (userData?.connectedSources?.codeforces) {
         codeforcesService.getProfile().then(r => r.data && setCfData(r.data)).catch(() => {});
+      }
+      if (userData?.connectedSources?.github || userData?.auth?.github?.username) {
+        githubService.getProfile().then(r => r.data && setGhData(r.data)).catch(() => {});
       }
 
       showToast?.('All connected platforms synchronized successfully!', 'success');
@@ -202,12 +207,9 @@ export default function Dashboard({ setActivePage }) {
             <h1 className="text-xl sm:text-2xl font-black text-[#111827] tracking-tight">
               Developer Ecosystem Dashboard
             </h1>
-            <span className="text-[10px] font-extrabold bg-[#EEF2FF] text-[#6366F1] px-2 py-0.5 rounded-md uppercase tracking-wider border border-[#E0E7FF]">
-              Live Telemetry
-            </span>
           </div>
           <p className="text-xs text-[#6B7280] font-semibold mt-1">
-            Real-time activity, algorithmic problem-solving telemetry, and cross-platform health.
+            Real-time activity, algorithmic problem-solving status, and cross-platform health.
           </p>
         </div>
 
@@ -555,7 +557,7 @@ export default function Dashboard({ setActivePage }) {
                 </div>
                 <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Stars</span>
-                  <span className="text-xl font-black text-amber-600 mt-0.5 block">★ {ghData.totalStars || 0}</span>
+                  <span className="text-xl font-black text-amber-600 mt-0.5 block">★ {ghData.totalStars ?? ghData.stargazersTotal ?? 0}</span>
                 </div>
                 <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Followers</span>
@@ -570,11 +572,16 @@ export default function Dashboard({ setActivePage }) {
                     Top Code Languages
                   </span>
                   <div className="flex flex-wrap gap-2">
-                    {ghData.topLanguages.slice(0, 6).map((lang, idx) => (
-                      <span key={idx} className="text-xs font-bold px-2.5 py-1 bg-white border border-[#E5E9F0] rounded-lg text-gray-800 shadow-xs">
-                        {lang.name} <span className="text-gray-400 font-normal">({lang.count})</span>
-                      </span>
-                    ))}
+                    {ghData.topLanguages.slice(0, 6).map((lang, idx) => {
+                      const displayStat = (lang.percentage !== undefined && lang.percentage !== null)
+                        ? `${lang.percentage}%`
+                        : (lang.count || (lang.bytes ? `${Math.round(lang.bytes / 1024)} KB` : ''));
+                      return (
+                        <span key={idx} className="text-xs font-bold px-2.5 py-1 bg-white border border-[#E5E9F0] rounded-lg text-gray-800 shadow-xs">
+                          {lang.name} {displayStat ? <span className="text-gray-400 font-normal">({displayStat})</span> : null}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import logger from '../utils/logger.js';
 
 /**
  * Generate JWT access and refresh tokens for a user.
@@ -50,6 +51,8 @@ export const register = async (req, res) => {
     user.refreshTokens.push({ token: refreshToken });
     await user.save();
 
+    logger.success('AUTH', `New user registered: ${user.email} (${user.name})`);
+
     res.status(201).json({
       user: {
         id: user._id,
@@ -62,7 +65,7 @@ export const register = async (req, res) => {
       refreshToken,
     });
   } catch (error) {
-    console.error('Register error:', error);
+    logger.error('AUTH', 'Registration error', error);
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -81,11 +84,13 @@ export const login = async (req, res) => {
 
     const user = await User.findOne({ email }).select('+passwordHash');
     if (!user || !user.passwordHash) {
+      logger.warn('AUTH', `Failed login attempt for unknown/unmatched email: ${email}`);
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
+      logger.warn('AUTH', `Failed login attempt (bad password) for email: ${email}`);
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
@@ -94,6 +99,8 @@ export const login = async (req, res) => {
     // Store refresh token
     user.refreshTokens.push({ token: refreshToken });
     await user.save();
+
+    logger.success('AUTH', `User logged in: ${user.email} (role: ${user.role || 'user'})`);
 
     res.json({
       user: {
@@ -107,7 +114,7 @@ export const login = async (req, res) => {
       refreshToken,
     });
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('AUTH', 'Login error', error);
     res.status(500).json({ error: 'Internal server error.' });
   }
 };

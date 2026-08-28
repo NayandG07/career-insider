@@ -1,16 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  Sparkles, 
-  Compass, 
-  Zap, 
-  AlertCircle, 
-  Target, 
-  Award, 
-  RefreshCw, 
-  Clock, 
-  Layers, 
-  BookOpen,
+import {
+  Sparkles,
+  Compass,
+  Zap,
+  AlertCircle,
+  Target,
+  Award,
+  RefreshCw,
+  Clock,
   ArrowDown,
   Link2,
   CheckCircle2,
@@ -18,46 +16,42 @@ import {
   HelpCircle,
   AlertTriangle,
   FolderGit2,
-  ChevronRight,
-  ExternalLink,
-  Code,
   Calendar,
   Settings,
   X,
-  ArrowRight,
-  ShieldCheck
+  ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReadinessGate from '../components/ReadinessGate';
 
 const ROLE_OPTIONS = [
-  { 
-    id: "Senior Backend Engineer", 
-    label: "Senior Backend Engineer", 
+  {
+    id: "Senior Backend Engineer",
+    label: "Senior Backend Engineer",
     desc: "Distributed APIs, microservices, database scaling & high-throughput concurrency",
     skills: ["Node.js / Go", "PostgreSQL", "Redis", "REST / gRPC", "System Design"]
   },
-  { 
-    id: "DevOps & Cloud Engineer", 
-    label: "DevOps / SRE Engineer", 
+  {
+    id: "DevOps & Cloud Engineer",
+    label: "DevOps / SRE Engineer",
     desc: "Production automation, cloud infrastructure, container orchestration & observability",
     skills: ["Linux", "Docker", "Kubernetes", "CI/CD", "Terraform", "Observability"]
   },
-  { 
-    id: "Full Stack Product Lead", 
-    label: "Full Stack Engineer", 
+  {
+    id: "Full Stack Product Lead",
+    label: "Full Stack Engineer",
     desc: "Modern reactive frontends, full-lifecycle web APIs & high product velocity",
     skills: ["React", "TypeScript", "Node.js", "Tailwind CSS", "Database Modeling"]
   },
-  { 
-    id: "Distributed Systems Architect", 
-    label: "Systems Architect", 
+  {
+    id: "Distributed Systems Architect",
+    label: "Systems Architect",
     desc: "High-scale storage engines, consensus algorithms, event streaming & protocols",
     skills: ["Go / Rust", "Kafka", "Distributed Storage", "Network Protocols", "Consensus"]
   },
-  { 
-    id: "Machine Learning Engineer", 
-    label: "ML & AI Systems", 
+  {
+    id: "Machine Learning Engineer",
+    label: "ML & AI Systems",
     desc: "Model serving pipelines, feature stores, embedding search & LLM workflows",
     skills: ["Python", "FastAPI", "Vector DBs", "PyTorch", "Data Pipelines"]
   },
@@ -66,9 +60,9 @@ const ROLE_OPTIONS = [
 const WEEKLY_BUDGETS = [5, 10, 15, 20];
 
 export default function Roadmap({ setActivePage }) {
-  const { 
-    userData, 
-    roadmap, 
+  const {
+    userData,
+    roadmap,
     loadSavedRoadmap,
     fetchRoadmap,
     readiness,
@@ -97,7 +91,7 @@ export default function Roadmap({ setActivePage }) {
     let isMounted = true;
     const init = async () => {
       if (loadSavedRoadmap) {
-        await loadSavedRoadmap().catch(() => {});
+        await loadSavedRoadmap().catch(() => { });
       }
       if (isMounted) setHasInitialized(true);
     };
@@ -131,14 +125,14 @@ export default function Roadmap({ setActivePage }) {
 
   // Toggle roles in First-Visit selection
   const handleToggleFirstVisitRole = (roleId) => {
-    setFirstVisitRoles(prev => 
+    setFirstVisitRoles(prev =>
       prev.includes(roleId) ? prev.filter(r => r !== roleId) : [...prev, roleId]
     );
   };
 
   // Toggle roles in Track Settings Popover
   const handleTogglePendingRole = (roleId) => {
-    setPendingRoles(prev => 
+    setPendingRoles(prev =>
       prev.includes(roleId) ? prev.filter(r => r !== roleId) : [...prev, roleId]
     );
   };
@@ -212,36 +206,50 @@ export default function Roadmap({ setActivePage }) {
     return milestoneMap.get(selectedMilestoneId) || milestones[0] || null;
   }, [selectedMilestoneId, milestoneMap, milestones]);
 
-  // Wait for initialization to complete
+  // Loading state before roadmap initialization completes
   if (!hasInitialized) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-400 space-y-4">
-        <RefreshCw className="w-8 h-8 text-purple-400 animate-spin" />
-        <span className="text-xs font-bold uppercase tracking-wider">Loading Roadmap Data...</span>
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <RefreshCw className="w-8 h-8 text-[#7C3AED] animate-spin" />
+        <p className="text-sm font-semibold text-[#6B7280]">Loading career growth roadmap...</p>
       </div>
     );
   }
 
-
   // Readiness Gate Check
-  if (hasInitialized && readiness && !readiness.ready) {
+  if (readiness && !readiness.ready) {
     return (
-      <ReadinessGate 
-        featureName="Career Roadmap" 
-        readiness={readiness} 
-        setActivePage={setActivePage} 
+      <ReadinessGate
+        featureName="Career Roadmap"
+        readiness={readiness}
+        setActivePage={setActivePage}
         description="Your roadmap needs more verified developer information. Connect LeetCode, Codeforces, and add at least one project so AI can chart a personalized milestone path."
       />
+    );
+  }
+
+  // Generating state when no saved roadmap exists yet
+  if (isGenerating && !roadmap) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4 text-center max-w-md mx-auto py-12">
+        <div className="w-14 h-14 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-[#7C3AED]">
+          <RefreshCw className="w-7 h-7 animate-spin" />
+        </div>
+        <h2 className="text-lg font-bold text-[#111827]">Building Your Personalized Roadmap</h2>
+        <p className="text-xs font-semibold text-[#6B7280]">
+          Synthesizing repository languages, problem-solving telemetry, and target competencies into milestone dependency stages...
+        </p>
+      </div>
     );
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // STATE A: FIRST VISIT (NO SAVED ROADMAP EXISTS YET)
   // ─────────────────────────────────────────────────────────────────────────────
-  if (hasInitialized && !roadmap && !isGenerating) {
+  if (!roadmap) {
     return (
       <div className="space-y-8 pb-16 text-left animate-fadeIn max-w-5xl mx-auto">
-        
+
         {/* First-Visit Header */}
         <div className="space-y-2 text-center sm:text-left pt-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-50 border border-purple-200 text-[#7C3AED] rounded-full text-xs font-bold mb-1">
@@ -283,20 +291,18 @@ export default function Roadmap({ setActivePage }) {
                   onClick={() => handleToggleFirstVisitRole(role.id)}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.99 }}
-                  className={`p-5 rounded-3xl border cursor-pointer transition-all flex flex-col justify-between space-y-4 shadow-xs ${
-                    isSelected 
-                      ? 'border-[#7C3AED] bg-gradient-to-b from-purple-50/60 to-white ring-2 ring-[#7C3AED]/20' 
-                      : 'border-[#E5E9F0] bg-white hover:border-gray-300 hover:bg-[#FAFBFC]'
-                  }`}
+                  className={`p-5 rounded-3xl border cursor-pointer transition-all flex flex-col justify-between space-y-4 shadow-xs ${isSelected
+                    ? 'border-[#7C3AED] bg-gradient-to-b from-purple-50/60 to-white ring-2 ring-[#7C3AED]/20'
+                    : 'border-[#E5E9F0] bg-white hover:border-gray-300 hover:bg-[#FAFBFC]'
+                    }`}
                 >
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="text-sm font-bold text-[#111827] leading-snug">{role.label}</h3>
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border transition-all ${
-                        isSelected 
-                          ? 'bg-[#7C3AED] border-[#7C3AED] text-white shadow-2xs' 
-                          : 'border-[#CBD5E1] bg-white'
-                      }`}>
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border transition-all ${isSelected
+                        ? 'bg-[#7C3AED] border-[#7C3AED] text-white shadow-2xs'
+                        : 'border-[#CBD5E1] bg-white'
+                        }`}>
                         {isSelected ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Circle className="w-3 h-3 text-transparent" />}
                       </div>
                     </div>
@@ -308,11 +314,10 @@ export default function Roadmap({ setActivePage }) {
 
                   <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-[#F3F4F6]">
                     {role.skills.map((skill, sIdx) => (
-                      <span 
+                      <span
                         key={sIdx}
-                        className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${
-                          isSelected ? 'bg-purple-100/70 text-[#7C3AED]' : 'bg-[#F3F4F6] text-[#4B5563]'
-                        }`}
+                        className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${isSelected ? 'bg-purple-100/70 text-[#7C3AED]' : 'bg-[#F3F4F6] text-[#4B5563]'
+                          }`}
                       >
                         {skill}
                       </span>
@@ -341,11 +346,10 @@ export default function Roadmap({ setActivePage }) {
                 key={hours}
                 type="button"
                 onClick={() => setFirstVisitWeeklyHours(hours)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  firstVisitWeeklyHours === hours
-                    ? 'bg-[#111827] text-white shadow-2xs'
-                    : 'bg-[#FAFBFC] border border-[#E5E9F0] text-[#4B5563] hover:bg-gray-100'
-                }`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${firstVisitWeeklyHours === hours
+                  ? 'bg-[#111827] text-white shadow-2xs'
+                  : 'bg-[#FAFBFC] border border-[#E5E9F0] text-[#4B5563] hover:bg-gray-100'
+                  }`}
               >
                 {hours}h / wk
               </button>
@@ -419,11 +423,11 @@ export default function Roadmap({ setActivePage }) {
   // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6 pb-16 text-left relative animate-fadeIn">
-      
+
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -499,7 +503,7 @@ export default function Roadmap({ setActivePage }) {
               </span>
             </div>
             <h3 className="text-base sm:text-lg font-black text-[#111827] mt-1.5">
-              {roadmap?.summary?.title || `Personalized Roadmap for ${roadmap?.targetRoles?.join(' + ') || 'Software Engineer'}`}
+              {roadmap?.summary?.title || (roadmap?.targetRoles?.length > 0 ? `Personalized Roadmap for ${roadmap.targetRoles.join(' + ')}` : 'Personalized Roadmap for Software Engineer')}
             </h3>
             <p className="text-xs text-[#4B5563] font-semibold mt-0.5 leading-relaxed">
               {roadmap?.summary?.description || 'Tailored sequence of milestone competencies based on your verified developer telemetry.'}
@@ -516,7 +520,7 @@ export default function Roadmap({ setActivePage }) {
 
         {/* Metrics Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          
+
           {/* Total Effort */}
           <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-4 space-y-1">
             <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Estimated Total Effort</span>
@@ -560,7 +564,7 @@ export default function Roadmap({ setActivePage }) {
 
       {/* 3. Main Milestone Dependency Graph & Detail Inspector */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
+
         {/* Left Column (8 cols): Vertical Milestone Cards with Non-Locking Downward Connectors */}
         <div className="lg:col-span-8 space-y-3">
           <div className="flex items-center justify-between">
@@ -586,11 +590,10 @@ export default function Roadmap({ setActivePage }) {
                     layout
                     onClick={() => setSelectedMilestoneId(milestone.id)}
                     whileHover={{ y: -1 }}
-                    className={`bg-white border rounded-3xl p-6 shadow-xs cursor-pointer transition-all space-y-4 relative ${
-                      isSelected 
-                        ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/10 bg-purple-50/5' 
-                        : 'border-[#E5E9F0] hover:border-gray-300'
-                    }`}
+                    className={`bg-white border rounded-3xl p-6 shadow-xs cursor-pointer transition-all space-y-4 relative ${isSelected
+                      ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/10 bg-purple-50/5'
+                      : 'border-[#E5E9F0] hover:border-gray-300'
+                      }`}
                   >
                     {/* Header: Sequence Index, Title, Type, Effort */}
                     <div className="flex items-start justify-between gap-3">
@@ -603,15 +606,14 @@ export default function Roadmap({ setActivePage }) {
                             <h4 className="text-sm font-bold text-[#111827] leading-snug">
                               {milestone.title}
                             </h4>
-                            <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase ${
-                              milestone.type === 'Foundation'
-                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                : milestone.type === 'Project'
+                            <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase ${milestone.type === 'Foundation'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : milestone.type === 'Project'
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                 : milestone.type === 'Advanced Skill'
-                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : 'bg-purple-50 text-[#7C3AED] border border-purple-200'
-                            }`}>
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : 'bg-purple-50 text-[#7C3AED] border border-purple-200'
+                              }`}>
                               {milestone.type || 'Core Skill'}
                             </span>
                           </div>
@@ -629,13 +631,12 @@ export default function Roadmap({ setActivePage }) {
                         </div>
 
                         {milestone.gapLevel && (
-                          <span className={`block text-[9px] font-bold px-2 py-0.5 rounded uppercase ${
-                            milestone.gapLevel === 'high' 
-                              ? 'text-amber-700 bg-amber-50' 
-                              : milestone.gapLevel === 'low'
+                          <span className={`block text-[9px] font-bold px-2 py-0.5 rounded uppercase ${milestone.gapLevel === 'high'
+                            ? 'text-amber-700 bg-amber-50'
+                            : milestone.gapLevel === 'low'
                               ? 'text-emerald-700 bg-emerald-50'
                               : 'text-purple-700 bg-purple-50'
-                          }`}>
+                            }`}>
                             {milestone.gapLevel} Gap
                           </span>
                         )}
@@ -680,7 +681,7 @@ export default function Roadmap({ setActivePage }) {
                       {/* Skills badges */}
                       <div className="flex flex-wrap items-center gap-1.5">
                         {milestone.skills?.map((skill, sIdx) => (
-                          <span 
+                          <span
                             key={sIdx}
                             className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-[#F3F4F6] text-[#4B5563]"
                           >
@@ -694,8 +695,8 @@ export default function Roadmap({ setActivePage }) {
                         <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold text-[#6B7280]">
                           <span className="text-gray-400">Prereq:</span>
                           {prereqObjects.map((p, pIdx) => (
-                            <span 
-                              key={pIdx} 
+                            <span
+                              key={pIdx}
                               className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md flex items-center gap-1"
                               title={`Recommended prerequisite: ${p.title}`}
                             >
@@ -730,7 +731,7 @@ export default function Roadmap({ setActivePage }) {
         {/* Right Column (4 cols): Selected Milestone Deep-Dive Inspector */}
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-5 sticky top-6">
-            
+
             <div className="flex items-center justify-between pb-3 border-b border-[#F3F4F6]">
               <span className="text-[10px] font-bold text-[#7C3AED] uppercase tracking-wider">
                 Milestone Details & Guidance
@@ -744,13 +745,12 @@ export default function Roadmap({ setActivePage }) {
               <div className="space-y-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase ${
-                      activeMilestone.type === 'Foundation'
-                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                        : activeMilestone.type === 'Project'
+                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase ${activeMilestone.type === 'Foundation'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : activeMilestone.type === 'Project'
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                         : 'bg-purple-50 text-[#7C3AED] border border-purple-200'
-                    }`}>
+                      }`}>
                       {activeMilestone.type || 'Core Skill'}
                     </span>
                     <span className="text-[10px] font-bold text-[#6B7280]">
@@ -861,19 +861,17 @@ export default function Roadmap({ setActivePage }) {
                       <div
                         key={role.id}
                         onClick={() => handleTogglePendingRole(role.id)}
-                        className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${
-                          isChecked 
-                            ? 'bg-purple-50/50 border-[#7C3AED] text-[#111827]' 
-                            : 'bg-[#FAFBFC] border-[#E5E9F0] text-[#4B5563] hover:bg-white'
-                        }`}
+                        className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${isChecked
+                          ? 'bg-purple-50/50 border-[#7C3AED] text-[#111827]'
+                          : 'bg-[#FAFBFC] border-[#E5E9F0] text-[#4B5563] hover:bg-white'
+                          }`}
                       >
                         <div>
                           <h5 className="text-xs font-bold">{role.label}</h5>
                           <p className="text-[10px] text-[#6B7280]">{role.desc}</p>
                         </div>
-                        <div className={`w-4 h-4 rounded-md flex items-center justify-center border shrink-0 ${
-                          isChecked ? 'bg-[#7C3AED] border-[#7C3AED] text-white' : 'border-[#CBD5E1] bg-white'
-                        }`}>
+                        <div className={`w-4 h-4 rounded-md flex items-center justify-center border shrink-0 ${isChecked ? 'bg-[#7C3AED] border-[#7C3AED] text-white' : 'border-[#CBD5E1] bg-white'
+                          }`}>
                           {isChecked && <CheckCircle2 className="w-3 h-3" />}
                         </div>
                       </div>
@@ -891,11 +889,10 @@ export default function Roadmap({ setActivePage }) {
                       key={hours}
                       type="button"
                       onClick={() => setPendingWeeklyHours(hours)}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        pendingWeeklyHours === hours
-                          ? 'bg-[#111827] text-white shadow-2xs'
-                          : 'bg-[#FAFBFC] border border-[#E5E9F0] text-[#4B5563] hover:bg-gray-100'
-                      }`}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${pendingWeeklyHours === hours
+                        ? 'bg-[#111827] text-white shadow-2xs'
+                        : 'bg-[#FAFBFC] border border-[#E5E9F0] text-[#4B5563] hover:bg-gray-100'
+                        }`}
                     >
                       {hours}h / wk
                     </button>

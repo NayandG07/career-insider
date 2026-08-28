@@ -415,19 +415,121 @@ export function extractSkillEvidence({ telemetry = {}, projects = [] }) {
     }
   ];
 
+  // ─── 7. Normalized Candidate Skills Generator ────────────────────────────────
+  function classifySkillCategory(name, sources) {
+    const n = (name || '').trim().toLowerCase();
+
+    // Frontend Development
+    if (/^(react|next\.js|nextjs|vue|vuejs|svelte|tailwind|tailwind css|css|html|framer motion|motion|redux|zustand|material ui|shadcn ui|shadcn|vite|webpack|ui|frontend)$/i.test(n) ||
+        /tailwind|react|framer|redux|shadcn|material ui/i.test(n)) {
+      return 'Frontend Development';
+    }
+
+    // Backend Engineering
+    if (/^(node\.js|nodejs|express|express\.js|fastapi|django|flask|spring|spring boot|rest api|rest apis|graphql|microservices|postgresql|postgres|mongodb|mongo|redis|prisma|mongoose|jwt|oauth|google oauth|websocket|socket\.io|backend|sql|mysql|plpgsql|database)$/i.test(n) ||
+        /express|fastapi|django|flask|spring|mongo|postgres|redis|graphql|socket\.io|websocket|oauth|jwt/i.test(n)) {
+      return 'Backend Engineering';
+    }
+
+    // Systems & Developer Tools
+    if (/^(git|github|docker|kubernetes|k8s|linux|ci\/cd|github actions|aws|gcp|azure|nginx|vercel|postman|devops|firebase|supabase)$/i.test(n) ||
+        /docker|kubernetes|linux|ci\/cd|actions|nginx|vercel|devops/i.test(n)) {
+      return 'Systems & Developer Tools';
+    }
+
+    // Programming Languages
+    if (/^(javascript|typescript|python|python3|c\+\+|cpp|c|java|go|golang|rust|php|ruby|swift|kotlin|bash|shell|powershell|solidity|html|css|sql|mysql|postgresql|plpgsql)$/i.test(n) ||
+        /javascript|typescript|python|c\+\+|java|rust|solidity|powershell|bash/i.test(n)) {
+      return 'Programming Languages';
+    }
+
+    // Algorithms & Problem Solving (algorithmic topics, tags, data structures)
+    return 'Algorithms & Problem Solving';
+  }
+
+  const candidateSkills = [];
+
+  for (const [skillName, evList] of Object.entries(skillEvidenceMap)) {
+    const sources = [...new Set(evList.map(e => e.source))];
+    const category = classifySkillCategory(skillName, sources);
+    const count = evList.length;
+
+    // Deterministic evidence strength calculation with diminishing returns
+    let baseScore = 30;
+
+    for (const ev of evList) {
+      if (ev.source === 'project') {
+        const pCount = ev.count || 1;
+        baseScore += Math.min(35, pCount * 18);
+      } else if (ev.source === 'leetcode') {
+        const solved = ev.count || 1;
+        baseScore += Math.min(30, Math.round(30 * (1 - Math.exp(-solved / 15))));
+      } else if (ev.source === 'codeforces') {
+        const accepted = ev.count || 1;
+        baseScore += Math.min(30, Math.round(30 * (1 - Math.exp(-accepted / 10))));
+      } else if (ev.source === 'github') {
+        const kb = ev.count || 1;
+        baseScore += Math.min(25, Math.round(25 * (1 - Math.exp(-kb / 80))));
+      }
+    }
+
+    // Cross-source corroboration bonus (e.g. GitHub + Projects or LeetCode + Codeforces)
+    if (sources.length >= 2) {
+      baseScore += 15;
+    }
+
+    const evidenceStrength = Math.min(95, Math.max(25, Math.round(baseScore)));
+
+    let level = 'Developing';
+    if (evidenceStrength >= 85) level = 'Advanced Evidence';
+    else if (evidenceStrength >= 65) level = 'Strong';
+    else if (evidenceStrength >= 45) level = 'Developing';
+    else level = 'Emerging';
+
+    const confidence = (sources.length >= 2 || count >= 3) ? 'High' : count === 2 ? 'Moderate' : 'Low';
+
+    // Format human-readable evidence summary
+    const summaryParts = [];
+    for (const ev of evList) {
+      if (ev.source === 'project') summaryParts.push(ev.value);
+      else if (ev.source === 'leetcode') summaryParts.push(`${ev.count || 1} solved on LeetCode`);
+      else if (ev.source === 'codeforces') summaryParts.push(`${ev.count || 1} accepted on Codeforces`);
+      else if (ev.source === 'github') summaryParts.push(`${ev.count || 1} KB code on GitHub`);
+    }
+
+    const evidenceSummary = summaryParts.join(' • ') || `${count} verified data points across ${sources.join(', ')}`;
+    const evidenceRefs = evList.map(e => e.id);
+
+    candidateSkills.push({
+      name: skillName,
+      category,
+      level,
+      confidence,
+      evidenceStrength,
+      evidenceCount: count,
+      evidenceSummary,
+      evidenceRefs,
+      sources,
+      explanation: `Verified evidence across ${sources.join(' and ')} with ${count} concrete telemetry data points.`,
+      whyItMatters: `Core capability in ${category} required for software engineering technical and practical rounds.`,
+      focusNext: `Continue building advanced project implementations and solving pattern variations for ${skillName}.`,
+    });
+  }
+
+  // Sort candidate skills deterministically by evidenceStrength descending, then count, then name
+  candidateSkills.sort((a, b) => b.evidenceStrength - a.evidenceStrength || b.evidenceCount - a.evidenceCount || a.name.localeCompare(b.name));
+
   const categories = categoryDefinitions.map(cat => {
     let matchedCount = 0;
     const matchedSkills = [];
 
-    for (const [skillName, evList] of Object.entries(skillEvidenceMap)) {
-      const matchesCategory = cat.keywords.some(kw => skillName.toLowerCase().includes(kw.toLowerCase()));
+    for (const s of candidateSkills) {
+      const matchesCategory = s.category === cat.name || cat.keywords.some(kw => s.name.toLowerCase().includes(kw.toLowerCase()));
       if (matchesCategory) {
-        matchedCount += evList.length;
-        matchedSkills.push({
-          name: skillName,
-          evidenceCount: evList.length,
-          evidenceRefs: evList.map(e => e.id),
-        });
+        matchedCount += s.evidenceCount;
+        if (!matchedSkills.includes(s.name)) {
+          matchedSkills.push(s.name);
+        }
       }
     }
 
@@ -446,7 +548,7 @@ export function extractSkillEvidence({ telemetry = {}, projects = [] }) {
       level,
       matchedCount,
       dimensions: dims,
-      skills: matchedSkills.sort((a, b) => b.evidenceCount - a.evidenceCount),
+      skills: matchedSkills,
     };
   }).filter(c => c.matchedCount > 0 || c.score > 0);
 
@@ -478,6 +580,7 @@ export function extractSkillEvidence({ telemetry = {}, projects = [] }) {
     },
     evidenceItems,
     skillEvidenceMap,
+    candidateSkills,
     sourceContributions,
     categories,
   };

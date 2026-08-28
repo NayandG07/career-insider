@@ -4,6 +4,8 @@ import {
   generateRoadmap,
   matchCompanies,
   mentorChat,
+  getMentorHistory,
+  clearMentorSession,
   getSkillProfile,
   analyzeSkills,
   getProgressSummary,
@@ -20,6 +22,8 @@ router.post('/skills/analyze', auth, analyzeSkills);
 
 router.post('/companies', auth, matchCompanies);
 router.post('/mentor/chat', auth, mentorChat);
+router.get('/mentor/history', auth, getMentorHistory);
+router.delete('/mentor/history/:sessionId', auth, clearMentorSession);
 router.get('/progress-summary', auth, getProgressSummary);
 
 export default router;

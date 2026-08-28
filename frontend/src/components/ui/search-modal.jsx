@@ -16,46 +16,42 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
-const ICON = "h-[18px] w-[18px] text-neutral-400 dark:text-neutral-500";
+const ICON = "h-[18px] w-[18px] text-neutral-400";
 
 const DEFAULT_TAGS = [
-  { label: "Skills", icon: <RadioButton className="h-4 w-4" /> },
-  { label: "Projects", icon: <Buildings className="h-4 w-4" /> },
-  { label: "Profiles", icon: <Users className="h-4 w-4" /> },
+  { label: "Skills & Milestones", icon: <RadioButton className="h-4 w-4" /> },
+  { label: "Engineering Showcase", icon: <Buildings className="h-4 w-4" /> },
+  { label: "Target Career Roles", icon: <Users className="h-4 w-4" /> },
 ];
 
 const DEFAULT_RESULTS = [
   {
-    name: "LeetCode Algorithmic Telemetry",
-    meta: "124 Solved • Rank #1.3M",
+    name: "GitHub Repositories & Sync",
+    meta: "Connect OAuth or sync code commits and languages",
     actions: [
-      { icon: <ChatTeardropText className="h-4 w-4" />, label: "Inspect" },
-      { icon: <ListPlus className="h-4 w-4" />, label: "Add" },
+      { icon: <ChatTeardropText className="h-4 w-4" />, label: "Sync" },
     ],
+  },
+  {
+    name: "LeetCode Algorithmic Activity",
+    meta: "Connect your handle to synchronize problem metrics",
+    actions: [{ icon: <ListPlus className="h-4 w-4" />, label: "Sync" }],
   },
   {
     name: "Codeforces Competitive Rating",
-    meta: "891 Rating • Newbie Tier",
-    actions: [{ icon: <ListPlus className="h-4 w-4" />, label: "Add" }],
-  },
-  {
-    name: "GitHub Repository Index",
-    meta: "Connected Repositories",
-    actions: [
-      { icon: <EnvelopeSimple className="h-4 w-4" />, label: "Open" },
-      { icon: <ListPlus className="h-4 w-4" />, label: "Add" },
-    ],
+    meta: "Connect handle to index contest ratings & ranks",
+    actions: [{ icon: <ListPlus className="h-4 w-4" />, label: "Sync" }],
   },
 ];
 
 const DEFAULT_QUICK_ACTIONS = [
-  { label: "Import GitHub Repositories", shortcut: "G" },
-  { label: "Sync External Telemetry", shortcut: "S" },
-  { label: "Add Custom Project", shortcut: "P" },
+  { label: "Sync External Platforms", shortcut: "S" },
+  { label: "Add Custom Deliverable", shortcut: "A" },
+  { label: "Manage Profile Settings", shortcut: "C" },
 ];
 
 const DEFAULT_FILES = [
-  { name: "Verified_Developer_Resume", ext: ".pdf", verified: true },
+  { name: "Developer_Resume_ATS_Ready", ext: ".pdf", verified: true },
 ];
 
 export function SearchModal({
@@ -78,6 +74,7 @@ export function SearchModal({
 }) {
   const [query, setQuery] = useState(defaultQuery);
   const [activeTags, setActiveTags] = useState(tags);
+  const [isMac] = useState(() => typeof window !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent));
 
   const inputRef = useRef(null);
 
@@ -144,14 +141,12 @@ export function SearchModal({
       role={modal ? "dialog" : undefined}
       aria-modal={modal ? true : undefined}
       className={cn(
-        "mx-auto w-full max-w-xl overflow-hidden rounded-2xl border backdrop-blur-xl",
-        "border-black/[0.07] bg-white/95 text-neutral-900 shadow-[0_10px_40px_-14px_rgba(0,0,0,0.22)]",
-        "dark:border-white/[0.08] dark:bg-neutral-900/95 dark:text-white dark:shadow-[0_18px_50px_-16px_rgba(0,0,0,0.7)]",
+        "mx-auto w-full max-w-xl overflow-hidden rounded-2xl border border-black/[0.07] bg-white/95 text-neutral-900 shadow-[0_10px_40px_-14px_rgba(0,0,0,0.22)] max-h-[85vh] min-h-[500px] overflow-y-auto no-scrollbar",
         className,
       )}
     >
       {/* Search bar */}
-      <div className="flex items-center gap-1 border-b border-black/[0.06] px-4 py-3.5 dark:border-white/[0.06]">
+      <div className="flex items-center gap-1 border-b border-black/[0.06] px-4 py-3.5">
         <MagnifyingGlass className={ICON} />
         <input
           ref={inputRef}
@@ -160,14 +155,14 @@ export function SearchModal({
           onChange={(e) => handleQuery(e.target.value)}
           placeholder={placeholder}
           aria-label="Search"
-          className="min-w-0 flex-1 bg-transparent px-3 text-sm text-current outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
+          className="min-w-0 flex-1 bg-transparent px-3 text-sm text-current outline-none placeholder:text-neutral-400"
         />
         <div className="flex shrink-0 items-center gap-2.5">
-          <button type="button" aria-label="Filters" className="text-neutral-400 transition-colors hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200">
+          <button type="button" aria-label="Filters" className="text-neutral-400 transition-colors hover:text-neutral-700">
             <SlidersHorizontal className="h-[18px] w-[18px]" />
           </button>
-          <kbd className="flex items-center gap-0.5 rounded-md border border-black/[0.06] bg-black/[0.03] px-1.5 py-0.5 font-sans text-[11px] font-medium text-neutral-400 dark:border-white/[0.08] dark:bg-white/[0.06] dark:text-neutral-500">
-            <span className="text-[13px] leading-none">⌘</span>
+          <kbd className="flex items-center gap-0.5 rounded-md border border-black/[0.06] bg-black/[0.03] px-1.5 py-0.5 font-sans text-[11px] font-medium text-neutral-400">
+            <span className="text-[10px] leading-none">{isMac ? '⌘' : 'Ctrl+'}</span>
             {modal && hotkey ? hotkey.toUpperCase() : "K"}
           </kbd>
         </div>
@@ -175,13 +170,13 @@ export function SearchModal({
 
       {/* Tags */}
       {activeTags.length > 0 ? (
-        <div className="border-b border-black/[0.06] px-4 py-3.5 dark:border-white/[0.06]">
-          <span className="text-[13px] text-neutral-400 dark:text-neutral-500">I&apos;m looking for...</span>
+        <div className="border-b border-black/[0.06] px-4 py-3.5">
+          <span className="text-[13px] text-neutral-400">I&apos;m looking for...</span>
           <div className="mt-3 flex flex-wrap gap-2">
             {activeTags.map((tag, i) => (
               <span
                 key={`${tag.label}-${i}`}
-                className="flex items-center gap-1.5 rounded-full bg-black/[0.04] py-1 pl-2.5 pr-2 text-[13px] ring-1 ring-inset ring-black/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]"
+                className="flex items-center gap-1.5 rounded-full bg-black/[0.04] py-1 pl-2.5 pr-2 text-[13px] ring-1 ring-inset ring-black/[0.04]"
               >
                 {tag.icon}
                 <span>{tag.label}</span>
@@ -189,7 +184,7 @@ export function SearchModal({
                   type="button"
                   onClick={() => removeTag(i)}
                   aria-label={`Remove ${tag.label}`}
-                  className="text-neutral-400 transition-colors hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200"
+                  className="text-neutral-400 transition-colors hover:text-neutral-700"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -201,9 +196,9 @@ export function SearchModal({
 
       {/* Results */}
       {results.length > 0 ? (
-        <div className="border-b border-black/[0.06] dark:border-white/[0.06]">
-          <p className="px-4 pt-3.5 pb-2 text-[13px] text-neutral-400 dark:text-neutral-500">
-            Navigation & Insights&nbsp;&nbsp;<span className="text-neutral-600 dark:text-neutral-300">{filteredResults.length}</span>
+        <div className="border-b border-black/[0.06]">
+          <p className="px-4 pt-3.5 pb-2 text-[13px] text-neutral-400">
+            Navigation & Insights&nbsp;&nbsp;<span className="text-neutral-600">{filteredResults.length}</span>
           </p>
           <ul className="px-1.5 pb-1.5">
             {filteredResults.map((result, i) => (
@@ -216,23 +211,27 @@ export function SearchModal({
                       onSelectResult(result, i);
                     }
                   }}
-                  className="group relative flex items-center rounded-lg px-2.5 py-2 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+                  className="group relative flex items-center rounded-lg px-2.5 py-2 transition-colors hover:bg-black/[0.03]"
                 >
-                  {result.avatar ? (
+                  {result.icon ? (
+                    <span className="h-6 w-6 shrink-0 flex items-center justify-center text-[#7C3AED]">
+                      {result.icon}
+                    </span>
+                  ) : result.avatar ? (
                     <img
                       src={result.avatar}
                       alt=""
-                      className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-black/5 dark:ring-white/10"
+                      className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-black/5"
                     />
                   ) : (
-                    <span className="h-6 w-6 shrink-0 rounded-full bg-neutral-300 ring-1 ring-black/5 dark:bg-neutral-600 dark:ring-white/10" />
+                    <span className="h-6 w-6 shrink-0 rounded-full bg-neutral-300 ring-1 ring-black/5" />
                   )}
                   <span className="ml-2.5 truncate text-sm">
                     {result.name}
-                    {result.meta ? <span className="pl-1.5 text-neutral-400 dark:text-neutral-500">{result.meta}</span> : null}
+                    {result.meta ? <span className="pl-1.5 text-neutral-400">{result.meta}</span> : null}
                   </span>
                   {result.actions && result.actions.length > 0 ? (
-                    <span className="ml-auto flex items-center gap-2.5 pl-3 text-neutral-400 opacity-70 transition-opacity group-hover:opacity-100 dark:text-neutral-500">
+                    <span className="ml-auto flex items-center gap-2.5 pl-3 text-neutral-400 opacity-70 transition-opacity group-hover:opacity-100">
                       {result.actions.map((action, ai) => (
                         <button
                           key={ai}
@@ -242,7 +241,7 @@ export function SearchModal({
                             e.preventDefault();
                             action.onClick?.();
                           }}
-                          className="transition-colors hover:text-neutral-700 dark:hover:text-neutral-200"
+                          className="transition-colors hover:text-neutral-700"
                         >
                           {action.icon}
                         </button>
@@ -258,21 +257,21 @@ export function SearchModal({
 
       {/* Quick actions */}
       {quickActions.length > 0 ? (
-        <div className="border-b border-black/[0.06] px-1.5 py-1.5 dark:border-white/[0.06]">
-          <p className="px-2.5 pt-2 pb-1 text-[13px] text-neutral-400 dark:text-neutral-500">Quick actions</p>
+        <div className="border-b border-black/[0.06] px-1.5 py-1.5">
+          <p className="px-2.5 pt-2 pb-1 text-[13px] text-neutral-400">Quick actions</p>
           {quickActions.map((action, i) => (
             <button
               key={`${action.label}-${i}`}
               type="button"
               onClick={action.onClick}
-              className="relative flex w-full items-center rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04] cursor-pointer"
+              className="relative flex w-full items-center rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-black/[0.03] cursor-pointer"
             >
-              <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-black/[0.04] text-neutral-500 dark:bg-white/[0.06] dark:text-neutral-300">
+              <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-black/[0.04] text-neutral-500">
                 {action.icon ?? <Plus className="h-[15px] w-[15px]" />}
               </span>
               <span className="pl-3 text-sm">{action.label}</span>
               {action.shortcut ? (
-                <kbd className="ml-auto flex h-[26px] w-[26px] items-center justify-center rounded-md bg-black/[0.04] font-sans text-[13px] text-neutral-500 ring-1 ring-inset ring-black/[0.04] dark:bg-white/[0.06] dark:text-neutral-300 dark:ring-white/[0.06]">
+                <kbd className="ml-auto flex h-[26px] w-[26px] items-center justify-center rounded-md bg-black/[0.04] font-sans text-[13px] text-neutral-500 ring-1 ring-inset ring-black/[0.04]">
                   {action.shortcut}
                 </kbd>
               ) : null}
@@ -281,39 +280,6 @@ export function SearchModal({
         </div>
       ) : null}
 
-      {/* Files */}
-      {files.length > 0 ? (
-        <div className="px-1.5 py-1.5">
-          <p className="px-2.5 pt-2 pb-1 text-[13px] text-neutral-400 dark:text-neutral-500">
-            Files&nbsp;&nbsp;<span className="text-neutral-600 dark:text-neutral-300">{files.length}</span>
-          </p>
-          {files.map((file, i) => (
-            <div
-              key={`${file.name}-${i}`}
-              className="group relative flex items-center rounded-lg px-2.5 py-2 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
-            >
-              <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-black/[0.04] text-neutral-500 dark:bg-white/[0.06] dark:text-neutral-300">
-                {file.icon ?? <FileArrowDown className="h-[15px] w-[15px]" />}
-              </span>
-              <span className="flex items-center gap-1.5 pl-3 text-sm">
-                <span>
-                  {file.name}
-                  {file.ext ? <span className="text-neutral-400 dark:text-neutral-500">{file.ext}</span> : null}
-                </span>
-                {file.verified ? <Checks className="h-4 w-4 text-emerald-500" /> : null}
-              </span>
-              <button
-                type="button"
-                onClick={file.onShare}
-                className="ml-auto flex items-center gap-1.5 text-sm text-neutral-400 opacity-80 transition-all hover:text-neutral-700 group-hover:opacity-100 dark:text-neutral-500 dark:hover:text-neutral-200 cursor-pointer"
-              >
-                <ShareFat weight="bold" className="h-4 w-4" />
-                <span>Share</span>
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 
@@ -324,12 +290,12 @@ export function SearchModal({
       onClick={() => setOpen(false)}
       aria-hidden={!actualOpen}
       className={cn(
-        "fixed inset-0 z-50 flex items-start justify-center p-4 pt-[12vh] transition-opacity duration-200 text-left",
+        "fixed inset-0 z-50 flex items-center justify-center p-4 transition-opacity duration-200 text-left",
         actualOpen ? "opacity-100" : "pointer-events-none opacity-0",
         overlayClassName,
       )}
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-xs dark:bg-black/60" />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" />
       <div
         onClick={(e) => e.stopPropagation()}
         className={cn(

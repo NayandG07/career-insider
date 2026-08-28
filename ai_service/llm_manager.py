@@ -78,7 +78,8 @@ class LLMManager:
             contents=prompt,
             config=genai_types.GenerateContentConfig(
                 max_output_tokens=4096,
-                temperature=0.7,
+                temperature=0.4,
+                response_mime_type="application/json",
             )
         )
         return response.text
@@ -96,7 +97,7 @@ class LLMManager:
         """
         Hugging Face Router API (OpenAI-compatible) via async httpx.
         Supports standard models and explicit model:provider syntax.
-        Includes 503 cold-start handling with automatic 15s retry and HTML error sanitization.
+        Includes 503 cold-start handling with automatic 10s retry and HTML error sanitization.
         """
         hf_model = (model_name.strip()
                     if model_name and model_name.strip()
@@ -110,30 +111,36 @@ class LLMManager:
         payload = {
             "model": hf_model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 2048,
-            "temperature": 0.7,
+            "max_tokens": 3500,
+            "temperature": 0.4,
             "stream": False
         }
 
-        timeout_seconds = 90.0
-        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+        # Structured timeout: quick connect, long read for large 72B models
+        hf_timeout = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=5.0)
+        async with httpx.AsyncClient(timeout=hf_timeout) as client:
             response = await client.post(url, headers=headers, json=payload)
 
             # Handle 503 Cold Start (model spinning up)
             if response.status_code == 503:
                 logger.warning(
-                    f"503 received for {hf_model} — model is cold-starting on HuggingFace router. Waiting 15s before retry..."
+                    f"503 received for {hf_model} — model is cold-starting on HuggingFace router. Waiting 10s before retry..."
                 )
-                await asyncio.sleep(15)
+                await asyncio.sleep(10)
                 logger.info(f"Retrying {hf_model} after 503 cold-start wait...")
                 response = await client.post(url, headers=headers, json=payload)
 
             if response.status_code == 200:
                 result = response.json()
                 if "choices" in result and len(result["choices"]) > 0:
-                    content = result["choices"][0]["message"]["content"]
-                    if content is not None:
+                    choice = result["choices"][0]
+                    message = choice.get("message", {})
+                    content = message.get("content")
+                    if content and content.strip():
                         return content.strip()
+                    # If finish_reason is length or content is empty
+                    finish_reason = choice.get("finish_reason", "unknown")
+                    raise RuntimeError(f"HuggingFace model '{hf_model}' returned empty content (finish_reason: {finish_reason})")
                 raise RuntimeError(f"HuggingFace router returned empty choices: {result}")
 
             # Error sanitization
@@ -144,8 +151,6 @@ class LLMManager:
                 error_msg = f"Hugging Face Router API error ({response.status_code}): {error_text[:200]}"
 
             raise RuntimeError(error_msg)
-
-
 
     async def _try_provider(self, provider: str, model_name: str, prompt: str) -> Optional[str]:
         keys = await self._get_api_keys(provider)
@@ -170,12 +175,17 @@ class LLMManager:
                         logger.error(f"Unknown provider '{provider}'")
                         return None
 
-                    logger.info(f"Provider '{provider}' succeeded on attempt {attempt + 1}.")
-                    return result
+                    if result and result.strip():
+                        logger.info(f"Provider '{provider}' succeeded on attempt {attempt + 1}.")
+                        return result.strip()
+                    else:
+                        logger.warning(f"Provider '{provider}' returned empty output on attempt {attempt + 1}.")
 
                 except Exception as e:
-                    error_msg = str(e).lower()
-                    logger.error(f"Provider '{provider}' attempt {attempt + 1} failed: {e}")
+                    # Always log the exception type — some exceptions (e.g. httpx.ReadTimeout) have empty str()
+                    error_detail = str(e) if str(e).strip() else type(e).__name__
+                    error_msg = error_detail.lower()
+                    logger.error(f"Provider '{provider}' attempt {attempt + 1} failed: [{type(e).__name__}] {str(e) or '(no message)'}")
 
                     if "429" in error_msg or "rate limit" in error_msg or "quota" in error_msg:
                         if attempt < max_retries - 1:
@@ -195,7 +205,7 @@ class LLMManager:
         """
         Invokes the configured LLM for a task.
         Reads config from DB (aiconfigs collection), tries primary provider,
-        then falls back through the fallbackChain.
+        then falls back through the fallbackChain and standard provider list.
         """
         config = await self._get_task_config(task)
         logger.info(
@@ -203,21 +213,33 @@ class LLMManager:
             f"fallbacks={config.fallbackChain}"
         )
 
+        tried_providers = set()
+
         # 1. Try primary provider with its configured model
+        tried_providers.add(config.primaryProvider)
         result = await self._try_provider(config.primaryProvider, config.primaryModel, prompt)
-        if result:
+        if result and result.strip():
             return result
 
-        # 2. Iterate through fallback providers
-        # Note: pass "" so each provider uses its own sensible default
+        # 2. Iterate through configured fallback providers
         for fallback_provider in config.fallbackChain:
-            if fallback_provider == config.primaryProvider:
+            if fallback_provider in tried_providers:
                 continue
+            tried_providers.add(fallback_provider)
             logger.info(f"Falling back to '{fallback_provider}' for task '{task}'")
-            # Use primary model only if provider matches, otherwise let each invoker use its default
             fallback_model = config.primaryModel if fallback_provider == config.primaryProvider else ""
             result = await self._try_provider(fallback_provider, fallback_model, prompt)
-            if result:
+            if result and result.strip():
+                return result
+
+        # 3. Last-resort fallback to any remaining standard providers
+        all_standard_providers = ["gemini", "openai", "huggingface"]
+        for provider in all_standard_providers:
+            if provider in tried_providers:
+                continue
+            logger.info(f"Trying remaining fallback provider '{provider}' for task '{task}'")
+            result = await self._try_provider(provider, "", prompt)
+            if result and result.strip():
                 return result
 
         raise RuntimeError(f"All providers failed for task '{task}'")

@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import Telemetry from '../models/Telemetry.js';
 import { fetchLeetCodeData } from '../services/leetcodeService.js';
+import logger from '../utils/logger.js';
 
 /**
  * POST /api/leetcode/connect
@@ -14,6 +15,7 @@ export const connectLeetCode = async (req, res) => {
   }
 
   const cleanHandle = handle.trim().replace(/^@/, '');
+  const task = logger.startTask('LEETCODE', 'Connect Handle', { user: req.user.email || req.user._id, handle: cleanHandle });
 
   try {
     const normalizedData = await fetchLeetCodeData(cleanHandle);
@@ -32,6 +34,11 @@ export const connectLeetCode = async (req, res) => {
       lastSyncedAt: new Date(),
     });
 
+    task.success({
+      solved: `${normalizedData.totalSolved || 0} total (E:${normalizedData.easySolved || 0} M:${normalizedData.mediumSolved || 0} H:${normalizedData.hardSolved || 0})`,
+      ranking: `#${normalizedData.ranking || 'N/A'}`
+    });
+
     res.json({
       message: 'LeetCode connected successfully.',
       connected: true,
@@ -39,10 +46,10 @@ export const connectLeetCode = async (req, res) => {
       lastSyncedAt: telemetry.fetchedAt,
     });
   } catch (error) {
+    task.error(error, `LeetCode connection failed for ${cleanHandle}`);
     if (error.message.includes('not found')) {
       return res.status(404).json({ error: `LeetCode user '${cleanHandle}' not found.` });
     }
-    console.error('LeetCode connect error:', error);
     res.status(500).json({ error: error.message || 'Unable to connect to LeetCode right now. Please try again.' });
   }
 };
@@ -101,6 +108,8 @@ export const syncLeetCode = async (req, res) => {
       return res.status(400).json({ error: 'LeetCode account is not connected.' });
     }
 
+    const task = logger.startTask('LEETCODE', 'Sync Telemetry', { user: req.user.email || req.user._id, handle });
+
     const freshData = await fetchLeetCodeData(handle);
 
     const telemetry = await Telemetry.findOneAndUpdate(
@@ -116,6 +125,11 @@ export const syncLeetCode = async (req, res) => {
       lastSyncedAt: new Date(),
     });
 
+    task.success({
+      solved: `${freshData.totalSolved || 0} total`,
+      ranking: `#${freshData.ranking || 'N/A'}`
+    });
+
     res.json({
       message: 'LeetCode synced successfully.',
       connected: true,
@@ -123,7 +137,7 @@ export const syncLeetCode = async (req, res) => {
       lastSyncedAt: telemetry.fetchedAt,
     });
   } catch (error) {
-    console.error('Sync LeetCode error:', error);
+    logger.error('LEETCODE', 'Sync LeetCode failed', error);
     res.status(500).json({ error: error.message || 'Unable to sync LeetCode right now. Please try again.' });
   }
 };

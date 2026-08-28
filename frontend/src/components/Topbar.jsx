@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Bell, Sparkles, Menu } from 'lucide-react';
+import { Search, Bell, Sparkles, Menu, LayoutGrid, User, FolderGit2, Compass, Settings } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import SearchModal from './ui/search-modal';
 
@@ -14,25 +14,37 @@ export default function Topbar({ activePage, setActivePage, onMenuToggle }) {
   const initial = firstName.charAt(0).toUpperCase();
   const avatarUrl = userData?.avatar || userData?.user?.avatar;
 
+  const [isMac] = useState(() => typeof window !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent));
+
   const searchResults = [
     {
-      name: "Dashboard & Ecosystem Overview",
-      meta: "Live Telemetry & Activity Stream",
+      name: "Ecosystem Dashboard",
+      meta: "Overview & Activity Stream",
+      icon: <LayoutGrid className="w-4 h-4" />,
       onClick: () => { setActivePage?.('dashboard'); setSearchOpen(false); },
     },
     {
       name: "Developer Profile",
-      meta: "Verified Footprint & Identity",
+      meta: "Skills Summary, Growth Progress & Identity Overview",
+      icon: <User className="w-4 h-4" />,
       onClick: () => { setActivePage?.('profile'); setSearchOpen(false); },
     },
     {
       name: "Showcase Projects",
-      meta: "Custom & GitHub Repositories",
+      meta: "GitHub Imports & Custom Engineering Deliverables",
+      icon: <FolderGit2 className="w-4 h-4" />,
       onClick: () => { setActivePage?.('projects'); setSearchOpen(false); },
     },
     {
-      name: "Connected Sources & Settings",
-      meta: "GitHub, LeetCode, Codeforces",
+      name: "Career Roadmap",
+      meta: "Target Roles, Milestone Dependencies & Goal Graph",
+      icon: <Compass className="w-4 h-4" />,
+      onClick: () => { setActivePage?.('roadmap'); setSearchOpen(false); },
+    },
+    {
+      name: "Account Settings & Integrations",
+      meta: "GitHub OAuth, LeetCode, Codeforces Handles & Notification Preferences",
+      icon: <Settings className="w-4 h-4" />,
       onClick: () => { setActivePage?.('settings'); setSearchOpen(false); },
     },
   ];
@@ -44,9 +56,14 @@ export default function Topbar({ activePage, setActivePage, onMenuToggle }) {
       onClick: () => { setActivePage?.('profile'); setSearchOpen(false); },
     },
     {
-      label: "Showcase Projects",
+      label: "View Showcase Projects",
       shortcut: "J",
       onClick: () => { setActivePage?.('projects'); setSearchOpen(false); },
+    },
+    {
+      label: "View Career Roadmap",
+      shortcut: "R",
+      onClick: () => { setActivePage?.('roadmap'); setSearchOpen(false); },
     },
     {
       label: "Manage Connected Sources",
@@ -57,7 +74,7 @@ export default function Topbar({ activePage, setActivePage, onMenuToggle }) {
 
   return (
     <>
-      <header className="sticky top-0 right-0 left-0 h-[72px] bg-white border-b border-[#E5E9F0] flex items-center justify-between px-4 sm:px-8 z-20 gap-3">
+      <header className="sticky top-0 right-0 left-0 h-[72px] bg-[#F8FAFC] border-b border-[#E5E9F0] flex items-center justify-between px-4 sm:px-8 z-20 gap-3">
 
         {/* Hamburger — mobile only */}
         {onMenuToggle && (
@@ -74,14 +91,14 @@ export default function Topbar({ activePage, setActivePage, onMenuToggle }) {
         {/* Search Modal Trigger Bar */}
         <div 
           onClick={() => setSearchOpen(true)}
-          className="relative hidden sm:flex items-center w-64 md:w-80 xl:w-96 pl-10 pr-4 py-2 border border-[#E5E9F0] rounded-xl bg-[#FAFBFC] hover:bg-[#F3F4F6] text-xs font-semibold text-[#9CA3AF] cursor-pointer transition-all focus-within:ring-2 focus-within:ring-[#7C3AED]/10 focus-within:border-[#7C3AED]"
+          className="relative hidden sm:flex items-center w-64 md:w-80 xl:w-96 pl-10 pr-4 py-2.5 border border-[#E5E9F0] rounded-xl bg-[#FAFBFC] hover:bg-[#F1F5F9] text-xs font-semibold text-[#6B7280] cursor-pointer transition-all focus-within:ring-2 focus-within:ring-[#7C3AED]/10 focus-within:border-[#7C3AED] shadow-2xs"
         >
           <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#9CA3AF]">
             <Search className="w-4 h-4" />
           </span>
-          <span className="truncate">Search skills, projects, telemetry…</span>
-          <span className="ml-auto px-1.5 py-0.5 border border-[#E5E9F0] bg-white text-[9px] font-bold text-[#9CA3AF] rounded-md shadow-xs pointer-events-none">
-            ⌘K
+          <span className="truncate">Search skills, projects, roadmap…</span>
+          <span className="ml-auto px-2 py-0.5 border border-[#E5E9F0] bg-white text-[9px] font-extrabold text-[#9CA3AF] rounded-md shadow-3xs pointer-events-none tracking-wider uppercase">
+            {isMac ? '⌘K' : 'Ctrl+K'}
           </span>
         </div>
 

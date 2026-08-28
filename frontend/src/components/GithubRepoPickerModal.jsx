@@ -10,20 +10,24 @@ import {
   Loader2, 
   AlertCircle,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  CheckSquare,
+  Square,
+  ArrowRight,
+  Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { githubService } from '../services/githubService';
 
-export default function GithubRepoPickerModal({ open, onClose, onImportSuccess }) {
+export default function GithubRepoPickerModal({ open, onClose, onSelectRepo, onBatchImport }) {
   const [loading, setLoading] = useState(true);
+  const [batchLoading, setBatchLoading] = useState(false);
   const [error, setError] = useState(null);
   const [notConnected, setNotConnected] = useState(false);
   const [username, setUsername] = useState('');
   const [repos, setRepos] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
-  const [importing, setImporting] = useState(false);
 
   const fetchRepos = async () => {
     setLoading(true);
@@ -33,11 +37,6 @@ export default function GithubRepoPickerModal({ open, onClose, onImportSuccess }
       const data = await githubService.getRepositories();
       setUsername(data.username || '');
       setRepos(data.repositories || []);
-      
-      // Auto-select non-imported repos by default or start empty
-      const alreadyImportedIds = new Set(
-        (data.repositories || []).filter((r) => r.alreadyImported).map((r) => r.githubId)
-      );
       setSelectedIds([]);
     } catch (err) {
       const errMsg = err.response?.data?.error || err.message || 'Failed to load repositories.';
@@ -55,6 +54,8 @@ export default function GithubRepoPickerModal({ open, onClose, onImportSuccess }
     if (open) {
       fetchRepos();
       setSearchTerm('');
+      setSelectedIds([]);
+      setBatchLoading(false);
     }
   }, [open]);
 
@@ -67,30 +68,66 @@ export default function GithubRepoPickerModal({ open, onClose, onImportSuccess }
     );
   });
 
-  const toggleSelect = (id) => {
+  const toggleSelect = (githubId) => {
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(githubId) ? prev.filter((id) => id !== githubId) : [...prev, githubId]
     );
   };
 
-  const selectAll = () => {
-    const selectable = filteredRepos.filter((r) => !r.alreadyImported).map((r) => r.githubId);
-    setSelectedIds(selectable);
+  const handleToggleSelectAll = () => {
+    if (selectedIds.length === filteredRepos.length && filteredRepos.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredRepos.map((r) => r.githubId));
+    }
   };
 
-  const clearSelection = () => setSelectedIds([]);
+  const handleSelectAndCustomize = (repo) => {
+    if (!repo) return;
+    const technologies = repo.primaryLanguage ? [repo.primaryLanguage] : ['GitHub'];
+    const prefillData = {
+      title: repo.name || '',
+      description: repo.description || '',
+      problem: repo.description || `${repo.name} repository codebase.`,
+      solution: 'Engineered modular codebase architecture, component design, and deployment pipelines.',
+      technologies,
+      repositoryUrl: repo.repositoryUrl || '',
+      liveDemoUrl: repo.liveDemoUrl || '',
+      source: 'github',
+      githubRepositoryId: repo.githubId,
+      primaryLanguage: repo.primaryLanguage || '',
+      isPrivate: Boolean(repo.isPrivate),
+    };
+    onSelectRepo?.(prefillData);
+    onClose();
+  };
 
-  const handleImport = async () => {
+  const handleBatchImportSubmit = async () => {
     if (selectedIds.length === 0) return;
-    setImporting(true);
+    
+    // If only 1 selected, customize it as per user requirement
+    if (selectedIds.length === 1) {
+      const singleRepo = repos.find((r) => r.githubId === selectedIds[0]);
+      if (singleRepo) {
+        handleSelectAndCustomize(singleRepo);
+        return;
+      }
+    }
+
+    // When multiple are chosen, directly import without prompt
+    setBatchLoading(true);
+    setError(null);
     try {
-      const res = await githubService.importRepositories(selectedIds);
-      onImportSuccess?.(res.imported, res.message);
+      if (onBatchImport) {
+        await onBatchImport(selectedIds);
+      } else {
+        await githubService.importRepositories(selectedIds);
+      }
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to import repositories.');
+      setError(err.response?.data?.error || err.message || 'Failed to batch import repositories.');
     } finally {
-      setImporting(false);
+      setBatchLoading(false);
     }
   };
 
@@ -113,6 +150,8 @@ export default function GithubRepoPickerModal({ open, onClose, onImportSuccess }
 
   if (!open) return null;
 
+  const isAllSelected = filteredRepos.length > 0 && selectedIds.length === filteredRepos.length;
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -131,7 +170,7 @@ export default function GithubRepoPickerModal({ open, onClose, onImportSuccess }
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 10 }}
           transition={{ duration: 0.15 }}
-          className="relative w-full max-w-2xl bg-white border border-[#E5E9F0] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] z-10 text-left"
+          className="relative w-full max-w-3xl bg-white border border-[#E5E9F0] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] z-10 text-left"
         >
           {/* Header */}
           <div className="p-6 border-b border-[#E5E9F0] flex items-center justify-between bg-[#FAFBFC]">
@@ -140,11 +179,16 @@ export default function GithubRepoPickerModal({ open, onClose, onImportSuccess }
                 <Github className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-[#111827]">
-                  Select Projects from GitHub
+                <h3 className="text-base font-bold text-[#111827] flex items-center gap-2">
+                  <span>Select Projects from GitHub</span>
+                  {selectedIds.length > 0 && (
+                    <span className="px-2 py-0.5 bg-[#7C3AED] text-white text-[10px] font-extrabold rounded-full">
+                      {selectedIds.length} selected
+                    </span>
+                  )}
                 </h3>
                 <p className="text-xs text-[#6B7280] font-semibold mt-0.5">
-                  {username ? `@${username} • ${repos.length} repositories found` : 'Choose repositories to include in your CareerOS profile'}
+                  {username ? `@${username} • ${repos.length} repositories available` : 'Choose repositories to include in your CareerOS profile'}
                 </p>
               </div>
             </div>
@@ -180,13 +224,13 @@ export default function GithubRepoPickerModal({ open, onClose, onImportSuccess }
             </div>
           ) : (
             <>
-              {/* Search & Actions Bar */}
+              {/* Search & Bulk Selection Bar */}
               <div className="p-4 border-b border-[#E5E9F0] bg-white flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-72">
+                <div className="relative w-full sm:w-80">
                   <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3.5 top-2.5 pointer-events-none" />
                   <input
                     type="text"
-                    placeholder="Search repositories…"
+                    placeholder="Search repositories by name, description, tech…"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/10 focus:border-[#7C3AED]"
@@ -194,27 +238,24 @@ export default function GithubRepoPickerModal({ open, onClose, onImportSuccess }
                 </div>
 
                 <div className="flex items-center gap-2 self-end sm:self-auto text-xs font-semibold">
+                  {filteredRepos.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleToggleSelectAll}
+                      className="px-3 py-1.5 border border-[#E5E9F0] rounded-xl text-xs font-bold text-[#4B5563] hover:bg-[#FAFBFC] hover:text-[#111827] transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      {isAllSelected ? <CheckSquare className="w-3.5 h-3.5 text-[#7C3AED]" /> : <Square className="w-3.5 h-3.5 text-[#9CA3AF]" />}
+                      <span>{isAllSelected ? 'Deselect All' : 'Select All'}</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={fetchRepos}
-                    className="p-2 border border-[#E5E9F0] rounded-lg text-[#6B7280] hover:bg-[#FAFBFC] cursor-pointer"
+                    className="p-2 border border-[#E5E9F0] rounded-xl text-[#6B7280] hover:bg-[#FAFBFC] cursor-pointer"
                     title="Refresh repositories"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={selectAll}
-                    className="px-2.5 py-1.5 border border-[#E5E9F0] rounded-lg text-[#374151] hover:bg-[#FAFBFC] cursor-pointer"
-                  >
-                    Select All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={clearSelection}
-                    className="px-2.5 py-1.5 border border-[#E5E9F0] rounded-lg text-[#6B7280] hover:bg-[#FAFBFC] cursor-pointer"
-                  >
-                    Clear
                   </button>
                 </div>
               </div>
@@ -227,7 +268,7 @@ export default function GithubRepoPickerModal({ open, onClose, onImportSuccess }
                 </div>
               )}
 
-              {/* Repo List */}
+              {/* Repo List with Checkboxes */}
               <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
                 {loading ? (
                   <div className="py-16 text-center space-y-2">
@@ -246,36 +287,28 @@ export default function GithubRepoPickerModal({ open, onClose, onImportSuccess }
                     return (
                       <div
                         key={repo.githubId}
-                        onClick={() => !isImported && toggleSelect(repo.githubId)}
-                        className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3.5 ${
-                          isImported
-                            ? 'bg-[#F9FAFB] border-[#E5E9F0] opacity-80 cursor-default'
-                            : isSelected
-                            ? 'bg-purple-50/40 border-[#7C3AED] ring-1 ring-[#7C3AED]/20'
-                            : 'bg-white border-[#E5E9F0] hover:border-[#CBD5E1]'
+                        onClick={() => toggleSelect(repo.githubId)}
+                        className={`p-4 rounded-2xl border transition-all cursor-pointer select-none flex items-start justify-between gap-3.5 ${
+                          isSelected
+                            ? 'bg-purple-50/60 border-[#7C3AED] ring-2 ring-[#7C3AED]/20 shadow-xs'
+                            : 'bg-white border-[#E5E9F0] hover:border-[#CBD5E1] hover:bg-[#FAFBFC]'
                         }`}
                       >
-                        {/* Checkbox */}
-                        <div className="pt-0.5 shrink-0">
-                          {isImported ? (
-                            <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs">
-                              <Check className="w-3.5 h-3.5" />
-                            </span>
-                          ) : (
-                            <div
-                              className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
-                                isSelected ? 'bg-[#7C3AED] border-[#7C3AED] text-white' : 'border-[#CBD5E1] bg-white'
-                              }`}
-                            >
-                              {isSelected && <Check className="w-3.5 h-3.5" />}
-                            </div>
-                          )}
+                        {/* Checkbox Multi-Selection */}
+                        <div className="pt-0.5 shrink-0" onClick={(e) => { e.stopPropagation(); toggleSelect(repo.githubId); }}>
+                          <div
+                            className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-colors ${
+                              isSelected ? 'bg-[#7C3AED] border-[#7C3AED] text-white shadow-2xs' : 'border-[#CBD5E1] bg-white'
+                            }`}
+                          >
+                            {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
+                          </div>
                         </div>
 
                         {/* Details */}
                         <div className="flex-1 min-w-0 space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-xs text-[#111827] truncate max-w-[280px]">
+                            <span className="font-bold text-xs text-[#111827] truncate max-w-[320px]">
                               {repo.name}
                             </span>
 
@@ -298,59 +331,109 @@ export default function GithubRepoPickerModal({ open, onClose, onImportSuccess }
                             )}
 
                             {isImported && (
-                              <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[9px] font-bold ml-auto">
-                                Imported
+                              <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[9px] font-bold">
+                                Already in Projects
                               </span>
                             )}
                           </div>
 
-                          {repo.description && (
+                          {repo.description ? (
                             <p className="text-[11px] text-[#6B7280] font-semibold line-clamp-2">
                               {repo.description}
                             </p>
+                          ) : (
+                            <p className="text-[11px] text-gray-400 italic">No description provided on GitHub.</p>
                           )}
                         </div>
 
-                        {/* Link */}
-                        <a
-                          href={repo.repositoryUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-1.5 text-[#9CA3AF] hover:text-[#111827] rounded-lg shrink-0"
-                          title="View on GitHub"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectAndCustomize(repo);
+                            }}
+                            className="px-3 py-1.5 bg-white hover:bg-purple-50 text-[#7C3AED] border border-purple-200 text-[11px] font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                            title="Open customizer card for this single project"
+                          >
+                            <span>Customize</span>
+                          </button>
+
+                          <a
+                            href={repo.repositoryUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 text-[#9CA3AF] hover:text-[#111827] rounded-lg shrink-0 border border-[#E5E9F0] hover:bg-white"
+                            title="View on GitHub"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
                       </div>
                     );
                   })
                 )}
               </div>
 
-              {/* Footer */}
-              <div className="p-4 border-t border-[#E5E9F0] bg-[#FAFBFC] flex items-center justify-between">
-                <span className="text-xs font-bold text-[#374151]">
-                  {selectedIds.length} repository{selectedIds.length === 1 ? '' : 'ies'} selected
-                </span>
+              {/* Footer with Single vs Multiple Actions */}
+              <div className="p-4 border-t border-[#E5E9F0] bg-[#FAFBFC] flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="text-xs font-semibold text-[#6B7280]">
+                  {selectedIds.length === 0 ? (
+                    <span>Select 1 repo to customize, or select multiple repos to directly import.</span>
+                  ) : selectedIds.length === 1 ? (
+                    <span className="text-[#111827] font-bold">1 repository selected (will open customization card).</span>
+                  ) : (
+                    <span className="text-[#7C3AED] font-bold">
+                      {selectedIds.length} repositories selected (will import directly to MongoDB & page).
+                    </span>
+                  )}
+                </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 self-end sm:self-auto">
                   <button
                     type="button"
                     onClick={onClose}
                     className="px-4 py-2 border border-[#E5E9F0] text-[#4B5563] hover:bg-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
                   >
-                    Cancel
+                    Close
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleImport}
-                    disabled={selectedIds.length === 0 || importing}
-                    className="px-4 py-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                  >
-                    {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                    <span>Import Selected</span>
-                  </button>
+
+                  {selectedIds.length === 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const found = repos.find((r) => r.githubId === selectedIds[0]);
+                        if (found) handleSelectAndCustomize(found);
+                      }}
+                      className="px-4 py-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>Customize & Import</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
+                  {selectedIds.length > 1 && (
+                    <button
+                      type="button"
+                      disabled={batchLoading}
+                      onClick={handleBatchImportSubmit}
+                      className="px-5 py-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold text-xs rounded-xl shadow-md shadow-purple-500/20 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {batchLoading ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Importing {selectedIds.length} Repositories…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Layers className="w-3.5 h-3.5" />
+                          <span>Directly Import All ({selectedIds.length})</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             </>
@@ -360,3 +443,4 @@ export default function GithubRepoPickerModal({ open, onClose, onImportSuccess }
     </AnimatePresence>
   );
 }
+

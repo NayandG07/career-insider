@@ -7,6 +7,11 @@ export const githubService = {
     return { data: ghData };
   },
 
+  sync: async () => {
+    const res = await api.get('/telemetry');
+    return res.data;
+  },
+
   getRepositories: async () => {
     const res = await api.get('/github/repositories');
     return res.data;

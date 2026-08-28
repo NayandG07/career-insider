@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import Project from '../models/Project.js';
+import logger from '../utils/logger.js';
 
 /**
  * Helper to fetch from GitHub API using the authenticated user's OAuth access token.
@@ -48,10 +49,12 @@ export const getRepositories = async (req, res) => {
     }
 
     // Re-validate identity & fetch repositories using authenticated token
-    const [githubUser, githubRepos] = await Promise.all([
+    const [githubUser, reposData] = await Promise.all([
       fetchGithubApi('/user', accessToken),
       fetchGithubApi('/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator', accessToken),
     ]);
+    const githubUsername = githubUser.login || user.auth?.github?.username || '';
+    const githubRepos = Array.isArray(reposData) ? reposData : [];
 
     // Update username if needed
     if (githubUser.login && user.auth.github.username !== githubUser.login) {
@@ -66,7 +69,7 @@ export const getRepositories = async (req, res) => {
       source: 'github',
     }).select('githubRepositoryId');
 
-    const importedSet = new Set(existingProjects.map((p) => p.githubRepositoryId));
+    const importedSet = new Set(existingProjects.map((p) => p.githubRepositoryId).filter(Boolean));
 
     const normalizedRepos = githubRepos.map((repo) => ({
       githubId: repo.id,
@@ -77,17 +80,19 @@ export const getRepositories = async (req, res) => {
       repositoryUrl: repo.html_url,
       liveDemoUrl: repo.homepage || '',
       isPrivate: repo.private || false,
-      stars: repo.stargazers_count,
+      stars: repo.stargazers_count || 0,
       updatedAt: repo.updated_at,
       alreadyImported: importedSet.has(repo.id),
     }));
 
+    logger.info('GITHUB', `Fetching repositories for user: ${user.email || req.user._id} (account: @${githubUsername})`);
+
     res.json({
-      username: githubUser.login || user.auth.github.username || user.connectedSources.github || '',
+      username: githubUsername,
       repositories: normalizedRepos,
     });
   } catch (error) {
-    console.error('Fetch GitHub repositories error:', error);
+    logger.error('GITHUB', 'Fetch GitHub repositories failed', error);
     res.status(500).json({ error: error.message || 'Failed to fetch GitHub repositories.' });
   }
 };
@@ -111,11 +116,17 @@ export const importRepositories = async (req, res) => {
       return res.status(400).json({ error: 'GitHub account is not connected.' });
     }
 
+    const importTask = logger.startTask('GITHUB', 'Batch Import Repositories', {
+      user: user.email || user._id,
+      selectedCount: repoIds.length,
+    });
+
     // Fetch user's repos via authenticated token to ensure ownership/access
     const githubRepos = await fetchGithubApi('/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator', accessToken);
     const selectedRepos = githubRepos.filter((r) => repoIds.includes(r.id));
 
     if (selectedRepos.length === 0) {
+      importTask.error(new Error('No matching repos found'), 'No matching repositories found to import');
       return res.status(404).json({ error: 'No matching repositories found to import.' });
     }
 
@@ -129,7 +140,9 @@ export const importRepositories = async (req, res) => {
         source: 'github',
         githubRepositoryId: repo.id,
         title: repo.name,
-        description: (repo.description || '').slice(0, 1000),
+        description: (repo.description || '').slice(0, 1000) || `Repository implementation for ${repo.name}.`,
+        problem: (repo.description || '').slice(0, 1000) || `Repository codebase and implementation for ${repo.name}.`,
+        solution: 'Engineered modular codebase architecture, dependency management, and technical delivery.',
         primaryLanguage: repo.language || '',
         technologies,
         repositoryUrl: repo.html_url || '',
@@ -147,12 +160,17 @@ export const importRepositories = async (req, res) => {
       importedProjects.push(updatedProject);
     }
 
+    importTask.success({
+      importedCount: importedProjects.length,
+      repos: importedProjects.map(p => p.title).join(', ')
+    });
+
     res.status(200).json({
       message: `Successfully imported ${importedProjects.length} repository project(s).`,
       imported: importedProjects,
     });
   } catch (error) {
-    console.error('Import GitHub repositories error:', error);
+    logger.error('GITHUB', 'Import GitHub repositories failed', error);
     res.status(500).json({ error: error.message || 'Failed to import GitHub repositories.' });
   }
 };

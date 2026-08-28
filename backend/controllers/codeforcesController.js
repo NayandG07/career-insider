@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import Telemetry from '../models/Telemetry.js';
 import { fetchCodeforcesData } from '../services/codeforcesService.js';
+import logger from '../utils/logger.js';
 
 /**
  * POST /api/codeforces/connect
@@ -14,6 +15,7 @@ export const connectCodeforces = async (req, res) => {
   }
 
   const cleanHandle = handle.trim().replace(/^@/, '');
+  const task = logger.startTask('CODEFORCES', 'Connect Handle', { user: req.user.email || req.user._id, handle: cleanHandle });
 
   try {
     // 1. Fetch public profile & stats from Codeforces
@@ -35,6 +37,12 @@ export const connectCodeforces = async (req, res) => {
       lastSyncedAt: new Date(),
     });
 
+    task.success({
+      rating: `${normalizedData.rating || 0} (${normalizedData.rank || 'unranked'})`,
+      contests: normalizedData.contestHistory?.length || 0,
+      solved: normalizedData.problemsSolved || 0
+    });
+
     res.json({
       message: 'Codeforces connected successfully.',
       connected: true,
@@ -42,10 +50,10 @@ export const connectCodeforces = async (req, res) => {
       lastSyncedAt: telemetry.fetchedAt,
     });
   } catch (error) {
+    task.error(error, `Codeforces connection failed for ${cleanHandle}`);
     if (error.message.includes('not found')) {
       return res.status(404).json({ error: `Codeforces handle '${cleanHandle}' not found.` });
     }
-    console.error('Codeforces connect error:', error);
     res.status(500).json({ error: error.message || 'Unable to connect to Codeforces right now. Please try again.' });
   }
 };
