@@ -4,13 +4,10 @@ import Telemetry from '../models/Telemetry.js';
 import { fetchGitHubData } from './githubService.js';
 import { fetchLeetCodeData } from './leetcodeService.js';
 import { fetchCodeforcesData } from './codeforcesService.js';
-import { fetchCodeChefData } from './codechefService.js';
-import { fetchKaggleData } from './kaggleService.js';
-import { decrypt } from '../utils/encrypt.js';
 
 /**
  * Sync all connected sources for a single user.
- * Fetches data from each connected platform and stores it in Telemetry.
+ * Fetches data from each connected platform (GitHub, LeetCode, Codeforces) and stores it in Telemetry.
  *
  * @param {object} user - Mongoose user document (must include auth for GitHub token)
  * @returns {object} Results per source { source: 'success' | 'skipped' | error message }
@@ -18,8 +15,8 @@ import { decrypt } from '../utils/encrypt.js';
 export async function syncUserSources(user) {
   const results = {};
 
-  // Fetch the user with provider access tokens
-  const fullUser = await User.findById(user._id).select('+auth.github.accessToken +auth.kaggle.accessToken');
+  // Fetch the user with GitHub access token
+  const fullUser = await User.findById(user._id).select('+auth.github.accessToken');
 
   // ─── GitHub ─────────────────────────────────────────────
   if (fullUser.connectedSources?.github) {
@@ -71,42 +68,6 @@ export async function syncUserSources(user) {
     }
   } else {
     results.codeforces = 'skipped';
-  }
-
-  // ─── CodeChef ───────────────────────────────────────────
-  if (fullUser.connectedSources?.codechef) {
-    try {
-      const data = await fetchCodeChefData(fullUser.connectedSources.codechef);
-      await Telemetry.findOneAndUpdate(
-        { userId: user._id, source: 'codechef' },
-        { data, fetchedAt: new Date() },
-        { upsert: true, new: true }
-      );
-      results.codechef = 'success';
-    } catch (err) {
-      results.codechef = err.message;
-    }
-  } else {
-    results.codechef = 'skipped';
-  }
-
-  // ─── Kaggle ─────────────────────────────────────────────
-  const kaggleUsername = fullUser.connectedSources?.kaggle?.username || (typeof fullUser.connectedSources?.kaggle === 'string' ? fullUser.connectedSources.kaggle : '');
-  if (kaggleUsername) {
-    try {
-      const accessToken = fullUser.auth?.kaggle?.accessToken || null;
-      const data = await fetchKaggleData(kaggleUsername, accessToken);
-      await Telemetry.findOneAndUpdate(
-        { userId: user._id, source: 'kaggle' },
-        { data, fetchedAt: new Date() },
-        { upsert: true, new: true }
-      );
-      results.kaggle = 'success';
-    } catch (err) {
-      results.kaggle = err.message;
-    }
-  } else {
-    results.kaggle = 'skipped';
   }
 
   // Update lastSyncedAt on user

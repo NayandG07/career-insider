@@ -4,9 +4,8 @@
 
 Modern developers and students use a variety of platforms to learn, practice, and showcase their skills. These platforms include:
 - **GitHub** (projects, contributions)
-- **LeetCode / Codeforces / CodeChef** (problem-solving, algorithmic skills)
-- **Kaggle** (data science, machine learning)
-- **Certifications & Resumes** (credentials, experience)
+- **LeetCode & Codeforces** (problem-solving, algorithmic skills)
+- **Projects & Resumes** (credentials, experience)
 
 **The issue:** Each of these platforms provides isolated metrics. A developer might know they have solved 300 LeetCode problems or made 500 GitHub contributions, but they cannot easily answer crucial career questions:
 - *Am I job-ready for a Backend Developer role?*
@@ -34,7 +33,7 @@ CareerOS is built on a two-service architecture with a modern, responsive fronte
 - **Purpose:** Handles all core application logic, data persistence, and external data fetching.
 - **Key Features:**
   - **Authentication:** Supports standard Email/Password and OAuth (Google, GitHub).
-  - **Telemetry Fetching:** Uses cron jobs to periodically fetch user statistics from GitHub, LeetCode, Codeforces, CodeChef, and Kaggle.
+  - **Telemetry Fetching:** Uses cron jobs to periodically fetch user statistics from GitHub, LeetCode, and Codeforces.
   - **File Uploads:** Parses uploaded PDF resumes into raw text for further AI processing.
   - **Proxy to AI:** Routes complex AI requests to the Python microservice.
   - **Admin API:** Manages API keys, users, AI routing configurations, and sync jobs.

@@ -445,22 +445,11 @@ function ProjectCard({ project, onEdit, onDelete, deleting, onRemoveGithub }) {
             >
               {project.title}
             </h3>
-            {isGithub && (
+            {isGithub && project.isPrivate && (
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                <span className="px-2 py-0.5 bg-[#111827] text-white rounded text-[9px] font-extrabold flex items-center gap-1">
-                  <Github className="w-2.5 h-2.5" />
-                  GitHub
+                <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[9px] font-bold">
+                  Private
                 </span>
-                {project.isPrivate && (
-                  <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[9px] font-bold">
-                    Private
-                  </span>
-                )}
-                {project.primaryLanguage && (
-                  <span className="px-1.5 py-0.5 bg-purple-50 text-[#7C3AED] border border-purple-100 rounded text-[9px] font-bold">
-                    {project.primaryLanguage}
-                  </span>
-                )}
               </div>
             )}
           </div>

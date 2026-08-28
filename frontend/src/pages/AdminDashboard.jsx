@@ -119,7 +119,7 @@ export default function AdminDashboard() {
             <span className="text-[10px] font-bold text-[#10B981]">Active Sync</span>
           </div>
           <p className="text-[10px] text-[#6B7280] font-semibold">
-            GitHub, LeetCode, Kaggle, Codeforces links.
+            GitHub, LeetCode, Codeforces links.
           </p>
         </motion.div>
 

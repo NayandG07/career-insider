@@ -2,277 +2,421 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
   Sparkles, 
-  Download, 
-  CheckCircle2, 
   Compass, 
-  ChevronRight, 
-  Lock, 
   Zap, 
   AlertCircle, 
-  Shuffle, 
-  CheckSquare, 
-  Square, 
-  Sliders, 
-  Globe, 
   Target, 
-  Info,
-  Award,
-  Activity,
-  Navigation,
-  Check
+  Award, 
+  RefreshCw, 
+  Clock, 
+  Layers, 
+  BookOpen,
+  ArrowDown,
+  Link2,
+  CheckCircle2,
+  Circle,
+  HelpCircle,
+  AlertTriangle,
+  FolderGit2,
+  ChevronRight,
+  ExternalLink,
+  Code,
+  Calendar,
+  Settings,
+  X,
+  ArrowRight,
+  ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  ResponsiveContainer,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  Radar,
-  Legend
-} from 'recharts';
+import ReadinessGate from '../components/ReadinessGate';
 
-export default function Roadmap() {
+const ROLE_OPTIONS = [
+  { 
+    id: "Senior Backend Engineer", 
+    label: "Senior Backend Engineer", 
+    desc: "Distributed APIs, microservices, database scaling & high-throughput concurrency",
+    skills: ["Node.js / Go", "PostgreSQL", "Redis", "REST / gRPC", "System Design"]
+  },
+  { 
+    id: "DevOps & Cloud Engineer", 
+    label: "DevOps / SRE Engineer", 
+    desc: "Production automation, cloud infrastructure, container orchestration & observability",
+    skills: ["Linux", "Docker", "Kubernetes", "CI/CD", "Terraform", "Observability"]
+  },
+  { 
+    id: "Full Stack Product Lead", 
+    label: "Full Stack Engineer", 
+    desc: "Modern reactive frontends, full-lifecycle web APIs & high product velocity",
+    skills: ["React", "TypeScript", "Node.js", "Tailwind CSS", "Database Modeling"]
+  },
+  { 
+    id: "Distributed Systems Architect", 
+    label: "Systems Architect", 
+    desc: "High-scale storage engines, consensus algorithms, event streaming & protocols",
+    skills: ["Go / Rust", "Kafka", "Distributed Storage", "Network Protocols", "Consensus"]
+  },
+  { 
+    id: "Machine Learning Engineer", 
+    label: "ML & AI Systems", 
+    desc: "Model serving pipelines, feature stores, embedding search & LLM workflows",
+    skills: ["Python", "FastAPI", "Vector DBs", "PyTorch", "Data Pipelines"]
+  },
+];
+
+const WEEKLY_BUDGETS = [5, 10, 15, 20];
+
+export default function Roadmap({ setActivePage }) {
   const { 
     userData, 
-    setUserData, 
-    skills, 
-    setSkills,
-    companies,
-    roadmap: consolidatedPath,
+    roadmap, 
+    loadSavedRoadmap,
     fetchRoadmap,
-    completeRoadmapItem,
-    updateSubtask,
+    readiness,
   } = useApp();
 
-
-  const [selectedRoles, setSelectedRoles] = useState(["Senior Backend Engineer"]);
-  const [activeTab, setActiveTab] = useState("timeline"); // "timeline" or "skills"
-  const [selectedMilestone, setSelectedMilestone] = useState(null);
-  const [selectedCompany, setSelectedCompany] = useState(null); // Razorpay, Google, Uber, Atlassian
-  const [isSelfAssessMode, setIsSelfAssessMode] = useState(false);
-  const [isRerouting, setIsRerouting] = useState(false);
-  
-  // AI detour/bypass states
-  const [showDetourModal, setShowDetourModal] = useState(false);
-  const [detourApplied, setDetourApplied] = useState(false);
+  // Loading & Initialization state
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
-  // Fetch roadmap from backend when selected roles change
+  // First-Visit State (NO AUTO-SELECTED ROLE by default)
+  const [firstVisitRoles, setFirstVisitRoles] = useState([]);
+  const [firstVisitWeeklyHours, setFirstVisitWeeklyHours] = useState(10);
+
+  // Returning User: Active selected milestone for inspector
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState(null);
+
+  // Returning User: Track Settings Popover state
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [pendingRoles, setPendingRoles] = useState([]);
+  const [pendingWeeklyHours, setPendingWeeklyHours] = useState(10);
+
+  // Load saved roadmap on mount once
   useEffect(() => {
-    if (selectedRoles.length > 0) {
-      setIsRerouting(true);
-      fetchRoadmap(selectedRoles)
-        .catch(err => console.error('Roadmap fetch failed:', err))
-        .finally(() => setIsRerouting(false));
-    }
-  }, [selectedRoles]);
-
-  // Toggle roles multi-selection filter
-  const handleToggleRoleFilter = (roleName) => {
-    setSelectedRoles(prev => {
-      if (prev.includes(roleName)) {
-        return prev.filter(r => r !== roleName);
-      } else {
-        return [...prev, roleName];
+    let isMounted = true;
+    const init = async () => {
+      if (loadSavedRoadmap) {
+        await loadSavedRoadmap().catch(() => {});
       }
-    });
-  };
+      if (isMounted) setHasInitialized(true);
+    };
+    init();
+    return () => { isMounted = false; };
+  }, []);
 
-  // Toast trigger
   const triggerToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
-    }, 4500);
+    }, 3500);
   };
 
-  // Sync consolidation outputs with global AppContext variables
-  useEffect(() => {
-    if (consolidatedPath) {
-      setUserData(prev => {
-        if (prev.readinessScore !== consolidatedPath.readiness || prev.targetRole !== selectedRoles.join(" + ")) {
-          return {
-            ...prev,
-            readinessScore: consolidatedPath.readiness,
-            targetRole: selectedRoles.join(" + "),
-            targetScore: consolidatedPath.targetScore
-          };
-        }
-        return prev;
-      });
+  // Synchronize settings state when opening popover
+  const savedRoles = useMemo(() => roadmap?.targetRoles || [], [roadmap]);
+  const savedWeeklyHours = useMemo(() => roadmap?.weeklyHours || 10, [roadmap]);
 
-      // Default the selected milestone details panel to the active one
-      const inProgress = consolidatedPath.milestones.find(m => m.status === 'in-progress');
-      if (inProgress) {
-        setSelectedMilestone(prev => {
-          if (!prev || !consolidatedPath.milestones.some(m => m.id === prev.id)) {
-            return inProgress;
-          }
-          // return refreshed version of currently selected milestone
-          return consolidatedPath.milestones.find(m => m.id === prev.id) || inProgress;
-        });
-      } else if (consolidatedPath.milestones.length > 0) {
-        setSelectedMilestone(prev => {
-          if (!prev || !consolidatedPath.milestones.some(m => m.id === prev.id)) {
-            return consolidatedPath.milestones[0];
-          }
-          return consolidatedPath.milestones.find(m => m.id === prev.id) || consolidatedPath.milestones[0];
-        });
-      }
-    }
-  }, [consolidatedPath, selectedRoles, setUserData]);
-
-  // Toggle tasks list and recalculate readiness
-  const handleToggleSubtask = (milestoneId, subtaskId) => {
-    if (!consolidatedPath) return;
-
-    // We locate the milestone in rolesConfig lists and toggle the status
-    // To make this simple and robust, we can keep the checklist state in the roleConfigs or local overrides.
-    // Let's modify the subtask completed status locally in the rolesConfig milestones lists
-    const updatedMilestones = consolidatedPath.milestones.map(m => {
-      if (m.id === milestoneId) {
-        const updatedSubtasks = m.subtasks.map(s => {
-          if (s.id === subtaskId) {
-            return { ...s, completed: !s.completed };
-          }
-          return s;
-        });
-        
-        const completedCount = updatedSubtasks.filter(s => s.completed).length;
-        const totalCount = updatedSubtasks.length;
-        const pct = Math.round((completedCount / totalCount) * 100);
-        
-        let newStatus = m.status;
-        if (pct === 100) {
-          newStatus = "completed";
-        } else if (pct > 0) {
-          newStatus = "in-progress";
-        } else {
-          newStatus = "locked";
-        }
-
-        return {
-          ...m,
-          subtasks: updatedSubtasks,
-          progress: pct,
-          status: newStatus
-        };
-      }
-      return m;
-    });
-
-    // Update active milestone details panel
-    const updatedSelected = updatedMilestones.find(m => m.id === milestoneId);
-    setSelectedMilestone(updatedSelected);
-
-    // Persist to DB (fire-and-forget; local state already updated)
-    const toggledSubtask = updatedSelected?.subtasks?.find(s => s.id === subtaskId);
-    if (toggledSubtask) {
-      updateSubtask(milestoneId, subtaskId, toggledSubtask.completed).catch(() => {});
-    }
-
-    // Call context complete action if relevant to keep mock outputs synchronized
-
-    if (updatedSelected.status === "completed") {
-      if (updatedSelected.title.includes("Docker")) {
-        completeRoadmapItem("Learn Docker");
-      } else if (updatedSelected.title.includes("Redis")) {
-        completeRoadmapItem("Redis Caching Essentials");
-      }
-      triggerToast(`🎉 Milestone Mastered: ${updatedSelected.title}!`);
-    } else {
-      triggerToast(`⏱️ Checklist updated.`);
-    }
+  const handleOpenSettings = () => {
+    setPendingRoles([...savedRoles]);
+    setPendingWeeklyHours(savedWeeklyHours);
+    setGenerationError(null);
+    setIsSettingsOpen(true);
   };
 
-  // Adjust skill self-assessment sliders
-  const handleSkillSliderChange = (skillIndex, value) => {
-    if (!consolidatedPath) return;
-    
-    const updatedSkills = [...(consolidatedPath.skills || [])];
-    const skillName = updatedSkills[skillIndex].subject;
-    
-    // Sync back to global AppContext skills data
-    const currentGlobalSkills = [...skills];
-    const targetIdx = currentGlobalSkills.findIndex(s => s.subject === skillName);
-    if (targetIdx !== -1) {
-      currentGlobalSkills[targetIdx] = {
-        ...currentGlobalSkills[targetIdx],
-        A: parseInt(value),
-        level: parseInt(value)
-      };
-      setSkills(currentGlobalSkills);
-    }
+  const handleCloseSettings = () => {
+    setIsSettingsOpen(false);
+    setPendingRoles([...savedRoles]);
+    setPendingWeeklyHours(savedWeeklyHours);
   };
 
-  // Handle Target Company Optimizer click
-  const handleCompanyRouteOptimize = (company) => {
-    setIsRerouting(true);
-    setSelectedCompany(company);
-    setTimeout(() => {
-      setIsRerouting(false);
-      triggerToast(`🛰️ GPS optimized for ${company.name} gaps!`);
-    }, 450);
-  };
-
-  // AI Detour accept flow
-  const handleAcceptDetour = () => {
-    setIsRerouting(true);
-    setShowDetourModal(false);
-    
-    setTimeout(() => {
-      setDetourApplied(true);
-      setIsRerouting(false);
-      triggerToast("🚀 AI Shortcut accepted! Milestone 1 marked completed using commit evidence.");
-    }, 1000);
-  };
-
-  // Identify critical nodes based on selected target company
-  const isMilestoneCritical = (milestoneTitle) => {
-    if (!selectedCompany) return false;
-
-    // Use the real missing skills from the AI-matched company data in context
-    const matchedCompanyData = (companies || []).find(
-      c => c.name === selectedCompany.name
+  // Toggle roles in First-Visit selection
+  const handleToggleFirstVisitRole = (roleId) => {
+    setFirstVisitRoles(prev => 
+      prev.includes(roleId) ? prev.filter(r => r !== roleId) : [...prev, roleId]
     );
-    const gaps = matchedCompanyData?.missing || [];
-    return gaps.some(gap => milestoneTitle.toLowerCase().includes(gap.toLowerCase()));
   };
 
+  // Toggle roles in Track Settings Popover
+  const handleTogglePendingRole = (roleId) => {
+    setPendingRoles(prev => 
+      prev.includes(roleId) ? prev.filter(r => r !== roleId) : [...prev, roleId]
+    );
+  };
 
+  // Calculate Dirty State for Settings
+  const isSettingsDirty = useMemo(() => {
+    if (pendingRoles.length === 0) return false;
+    if (pendingWeeklyHours !== savedWeeklyHours) return true;
+    if (pendingRoles.length !== savedRoles.length) return true;
+    const sortedPending = [...pendingRoles].sort();
+    const sortedSaved = [...savedRoles].sort();
+    return sortedPending.some((r, idx) => r !== sortedSaved[idx]);
+  }, [pendingRoles, pendingWeeklyHours, savedRoles, savedWeeklyHours]);
+
+  // First Visit: Generate Action
+  const handleFirstVisitBuild = async () => {
+    if (firstVisitRoles.length === 0) return;
+    setIsGenerating(true);
+    setGenerationError(null);
+    try {
+      await fetchRoadmap(firstVisitRoles, firstVisitWeeklyHours);
+      triggerToast(`Personalized roadmap created for ${firstVisitRoles.join(' & ')}`);
+    } catch (err) {
+      console.error('Build roadmap error:', err);
+      setGenerationError('Failed to build roadmap. Make sure your telemetry sources are connected and try again.');
+      triggerToast('Failed to build roadmap.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Returning User: Regenerate from Settings
+  const handleRegenerateFromSettings = async () => {
+    if (!isSettingsDirty || pendingRoles.length === 0) return;
+    setIsGenerating(true);
+    setIsSettingsOpen(false);
+    setGenerationError(null);
+    try {
+      await fetchRoadmap(pendingRoles, pendingWeeklyHours);
+      triggerToast(`Roadmap updated for ${pendingRoles.join(' & ')}`);
+    } catch (err) {
+      console.error('Roadmap regeneration error:', err);
+      setGenerationError("We couldn't generate the updated roadmap. Your current roadmap is still safe.");
+      triggerToast('Update failed. Previous roadmap preserved.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const milestones = roadmap?.milestones || [];
+  const milestoneMap = useMemo(() => {
+    const map = new Map();
+    milestones.forEach(m => map.set(m.id, m));
+    return map;
+  }, [milestones]);
+
+  // Total Hours & Dynamic Weekly duration
+  const totalHours = useMemo(() => {
+    if (roadmap?.estimatedTotalHours) return roadmap.estimatedTotalHours;
+    return milestones.reduce((sum, m) => sum + (m.estimatedHours || 12), 0);
+  }, [roadmap, milestones]);
+
+  const activeWeeklyHours = roadmap?.weeklyHours || 10;
+  const totalWeeks = useMemo(() => {
+    return Math.max(1, Math.ceil(totalHours / Math.max(1, activeWeeklyHours)));
+  }, [totalHours, activeWeeklyHours]);
+
+  // Active selected milestone for detail inspector
+  const activeMilestone = useMemo(() => {
+    if (!selectedMilestoneId && milestones.length > 0) return milestones[0];
+    return milestoneMap.get(selectedMilestoneId) || milestones[0] || null;
+  }, [selectedMilestoneId, milestoneMap, milestones]);
+
+  // Readiness Gate Check
+  if (hasInitialized && readiness && !readiness.ready) {
+    return (
+      <ReadinessGate 
+        featureName="Career Roadmap" 
+        readiness={readiness} 
+        setActivePage={setActivePage} 
+        description="Your roadmap needs more verified developer information. Connect LeetCode, Codeforces, and add at least one project so AI can chart a personalized milestone path."
+      />
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STATE A: FIRST VISIT (NO SAVED ROADMAP EXISTS YET)
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (hasInitialized && !roadmap && !isGenerating) {
+    return (
+      <div className="space-y-8 pb-16 text-left animate-fadeIn max-w-5xl mx-auto">
+        
+        {/* First-Visit Header */}
+        <div className="space-y-2 text-center sm:text-left pt-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-50 border border-purple-200 text-[#7C3AED] rounded-full text-xs font-bold mb-1">
+            <Compass className="w-3.5 h-3.5" />
+            <span>Career Growth Roadmap</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#111827] tracking-tight leading-tight">
+            Choose where you want to go.
+          </h1>
+          <p className="text-sm text-[#4B5563] font-semibold max-w-2xl leading-relaxed">
+            Select one or more target career directions. CareerOS will analyze your verified code repositories, problem-solving telemetry, and project evidence to generate a personalized dependency roadmap.
+          </p>
+        </div>
+
+        {generationError && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-xs font-bold text-red-700 flex items-center gap-2.5">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
+            <span>{generationError}</span>
+          </div>
+        )}
+
+        {/* Destination Role Selection Cards */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#6B7280] uppercase tracking-wider">
+              Select Career Destinations
+            </span>
+            <span className={`text-xs font-bold ${firstVisitRoles.length > 0 ? 'text-[#7C3AED]' : 'text-gray-400'}`}>
+              {firstVisitRoles.length} selected
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {ROLE_OPTIONS.map((role) => {
+              const isSelected = firstVisitRoles.includes(role.id);
+              return (
+                <motion.div
+                  key={role.id}
+                  onClick={() => handleToggleFirstVisitRole(role.id)}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.99 }}
+                  className={`p-5 rounded-3xl border cursor-pointer transition-all flex flex-col justify-between space-y-4 shadow-xs ${
+                    isSelected 
+                      ? 'border-[#7C3AED] bg-gradient-to-b from-purple-50/60 to-white ring-2 ring-[#7C3AED]/20' 
+                      : 'border-[#E5E9F0] bg-white hover:border-gray-300 hover:bg-[#FAFBFC]'
+                  }`}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="text-sm font-bold text-[#111827] leading-snug">{role.label}</h3>
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border transition-all ${
+                        isSelected 
+                          ? 'bg-[#7C3AED] border-[#7C3AED] text-white shadow-2xs' 
+                          : 'border-[#CBD5E1] bg-white'
+                      }`}>
+                        {isSelected ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Circle className="w-3 h-3 text-transparent" />}
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-[#6B7280] font-semibold leading-relaxed">
+                      {role.desc}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-[#F3F4F6]">
+                    {role.skills.map((skill, sIdx) => (
+                      <span 
+                        key={sIdx}
+                        className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${
+                          isSelected ? 'bg-purple-100/70 text-[#7C3AED]' : 'bg-[#F3F4F6] text-[#4B5563]'
+                        }`}
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Weekly Time Budget Selector */}
+        <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-0.5">
+            <span className="text-xs font-bold text-[#111827] block">
+              How much time can you invest each week?
+            </span>
+            <p className="text-[11px] text-[#6B7280] font-semibold">
+              Used to estimate realistic timeline durations for each milestone stage.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {WEEKLY_BUDGETS.map(hours => (
+              <button
+                key={hours}
+                type="button"
+                onClick={() => setFirstVisitWeeklyHours(hours)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  firstVisitWeeklyHours === hours
+                    ? 'bg-[#111827] text-white shadow-2xs'
+                    : 'bg-[#FAFBFC] border border-[#E5E9F0] text-[#4B5563] hover:bg-gray-100'
+                }`}
+              >
+                {hours}h / wk
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Primary Call to Action */}
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-[#E5E9F0]">
+          <div className="text-xs text-[#6B7280] font-semibold">
+            {firstVisitRoles.length === 0 ? (
+              <span className="text-amber-600 font-bold flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4" />
+                Select at least 1 career destination to continue
+              </span>
+            ) : (
+              <span className="text-emerald-700 font-bold flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                Ready to synthesize path for {firstVisitRoles.length} target direction{firstVisitRoles.length > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          <motion.button
+            whileHover={{ scale: firstVisitRoles.length > 0 ? 1.02 : 1 }}
+            whileTap={{ scale: firstVisitRoles.length > 0 ? 0.98 : 1 }}
+            onClick={handleFirstVisitBuild}
+            disabled={firstVisitRoles.length === 0}
+            className="w-full sm:w-auto px-8 py-3.5 bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-40 text-white font-extrabold text-sm rounded-2xl shadow-sm cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2.5 transition-all"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Build My Roadmap</span>
+            <ArrowRight className="w-4 h-4" />
+          </motion.button>
+        </div>
+
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // FIRST VISIT GENERATION LOADING STATE
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (isGenerating && !roadmap) {
+    return (
+      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-16 text-center space-y-4 shadow-xs max-w-xl mx-auto my-12 animate-fadeIn">
+        <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto text-[#7C3AED]">
+          <RefreshCw className="w-7 h-7 animate-spin" />
+        </div>
+        <div className="space-y-1.5">
+          <h3 className="text-base font-bold text-[#111827]">
+            Analyzing Profile & Synthesizing Roadmap…
+          </h3>
+          <p className="text-xs text-[#6B7280] font-semibold leading-relaxed">
+            Evaluating your LeetCode, Codeforces, GitHub repositories, and showcase projects against target role expectations.
+          </p>
+        </div>
+        <div className="pt-2 flex justify-center gap-2">
+          {firstVisitRoles.map((r, idx) => (
+            <span key={idx} className="text-[10px] font-bold px-2.5 py-1 bg-purple-50 text-[#7C3AED] rounded-lg border border-purple-200">
+              {r}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STATE B: RETURNING USER (SAVED ROADMAP EXISTS)
+  // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 pb-16 text-left relative">
-      <style>{`
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .animate-spin-slow {
-          animation: spin-slow 12s linear infinite;
-        }
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 0.3; }
-          50% { opacity: 0.9; }
-        }
-        .animate-pulse-slow {
-          animation: pulse-slow 3s ease-in-out infinite;
-        }
-        .gps-grid {
-          background-size: 24px 24px;
-          background-image: 
-            linear-gradient(to right, rgba(99, 102, 241, 0.02) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(99, 102, 241, 0.02) 1px, transparent 1px);
-        }
-      `}</style>
-
+    <div className="space-y-6 pb-16 text-left relative animate-fadeIn">
+      
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
           <motion.div 
-            initial={{ opacity: 0, y: -50, scale: 0.9 }}
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.9 }}
-            className="fixed top-6 right-6 z-50 bg-[#1E293B] text-white px-5 py-3 rounded-2xl shadow-xl border border-[#334155] flex items-center gap-3 font-semibold text-xs animate-pulse"
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            className="fixed top-6 right-6 z-50 bg-[#1E293B] text-white px-5 py-3 rounded-2xl shadow-xl border border-[#334155] flex items-center gap-3 font-semibold text-xs"
           >
             <Zap className="w-4 h-4 text-purple-400 fill-purple-400/20" />
             <span>{toastMessage}</span>
@@ -280,681 +424,496 @@ export default function Roadmap() {
         )}
       </AnimatePresence>
 
-      {/* Title block */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-[26px] font-extrabold text-[#111827] tracking-tight leading-tight flex items-center gap-2">
-            <Compass className="w-7 h-7 text-[#6366F1] animate-pulse-slow" />
-            Career Roadmap GPS
-          </h1>
-          <p className="text-xs text-[#6B7280] mt-1 font-semibold">
-            Telemetry mappings are updating. Select target roles below to plan your navigation track.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <motion.button 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="px-4 py-2.5 bg-white border border-[#E5E9F0] text-[#4B5563] font-bold text-xs rounded-xl shadow-sm hover:bg-[#FAFBFC] transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Export Path
-          </motion.button>
-        </div>
-      </div>
-
-      {/* Reroute / Recalculating Overlay */}
-      {isRerouting && (
-        <div className="absolute inset-0 bg-[#F6F8FC]/50 backdrop-blur-sm z-30 flex flex-col items-center justify-center rounded-3xl min-h-[400px]">
-          <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xl text-center space-y-3 max-w-xs">
-            <Compass className="w-10 h-10 text-[#6366F1] animate-spin-slow mx-auto" />
-            <h3 className="font-bold text-[#111827] text-sm">Recalculating GPS Path...</h3>
-            <p className="text-[11px] text-[#6B7280] font-semibold leading-relaxed">
-              Consolidating skill targets and plotting trajectory vectors.
-            </p>
+      {/* Regeneration Failure Notice (Preserves Previous Roadmap) */}
+      {generationError && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs font-bold text-amber-800 flex items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+            <span>{generationError}</span>
           </div>
+          <button
+            onClick={handleOpenSettings}
+            className="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold rounded-lg cursor-pointer"
+          >
+            Try Again
+          </button>
         </div>
       )}
 
-      {/* ORGANISED TARGET PATH SELECTOR FILTERS */}
-      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-3">
-          <h3 className="text-xs font-bold text-[#111827] uppercase tracking-wider flex items-center gap-2">
-            <Target className="w-4 h-4 text-[#6366F1]" />
-            Target Positions Filter Map
-          </h3>
-          <span className="text-[10px] text-slate-400 font-semibold">
-            Select one or multiple to merge trajectories
-          </span>
+      {/* 1. Header with Compact Role Destination and Secondary Settings Action */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-[26px] sm:text-[28px] font-bold text-[#111827] tracking-tight leading-tight">
+              Career Growth Roadmap
+            </h1>
+            <span className="text-[10px] font-extrabold bg-purple-50 text-[#7C3AED] px-2 py-0.5 rounded-md uppercase tracking-wider border border-purple-200">
+              Personalized Path
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-[#4B5563] mt-1 font-semibold">
+            Targeting: <strong className="text-[#111827]">{roadmap.targetRoles?.join(' • ') || 'Software Engineer'}</strong>
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {[
-            { id: "Senior Backend Engineer", label: "Senior Backend Engineer", desc: "APIs, Caching, Databases & Scale" },
-            { id: "DevOps", label: "DevOps & Pipeline Infrastructure", desc: "CI/CD, Linux Shell, Container setups" },
-            { id: "Cloud Architect", label: "Cloud Solution Architect", desc: "Terraform IaC, VPC, CDN caching" },
-            { id: "Staff Fullstack Engineer", label: "Staff Fullstack Engineer", desc: "NextJS, monorepos, Edge BFF layers" },
-            { id: "Distributed Systems & Cloud Engineer", label: "Distributed Systems & Cloud", desc: "Raft consensus, sharding, global caches" },
-            { id: "AI/ML Platform Engineer", label: "AI/ML Platform Engineer", desc: "Triton servers, GPU scaling, Ray clusters" }
-          ].map((role) => {
-            const isChecked = selectedRoles.includes(role.id);
-            return (
-              <div 
-                key={role.id}
-                onClick={() => handleToggleRoleFilter(role.id)}
-                className={`p-3.5 rounded-2xl border transition-all text-left flex items-start gap-3 cursor-pointer ${
-                  isChecked 
-                    ? 'border-[#6366F1] bg-[#EEF2FF]/40 ring-1 ring-[#6366F1]/10' 
-                    : 'border-[#E5E9F0] bg-white hover:border-[#CBD5E1]'
-                }`}
-              >
-                <div className="mt-1">
-                  {isChecked ? (
-                    <div className="w-4 h-4 rounded bg-[#6366F1] flex items-center justify-center text-white">
-                      <Check className="w-3 h-3 stroke-[3]" />
-                    </div>
-                  ) : (
-                    <div className="w-4 h-4 rounded border border-[#CBD5E1] bg-white" />
-                  )}
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-[#111827]">{role.label}</h4>
-                  <p className="text-[10px] text-[#6B7280] font-semibold mt-0.5">{role.desc}</p>
-                </div>
-              </div>
-            );
-          })}
+        {/* Secondary Track Settings Button */}
+        <div className="flex items-center gap-3">
+          {isGenerating ? (
+            <div className="px-4 py-2 bg-purple-50 border border-purple-200 text-[#7C3AED] text-xs font-bold rounded-xl flex items-center gap-2">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              <span>Updating roadmap…</span>
+            </div>
+          ) : (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleOpenSettings}
+              className="px-4 py-2.5 bg-white hover:bg-[#FAFBFC] border border-[#E5E9F0] text-[#111827] hover:text-[#7C3AED] font-bold text-xs rounded-xl shadow-2xs cursor-pointer flex items-center gap-2 transition-all"
+            >
+              <Settings className="w-3.5 h-3.5 text-gray-500" />
+              <span>Change Track / Settings</span>
+            </motion.button>
+          )}
         </div>
       </div>
 
-      {/* RENDER DYNAMIC PATH CONTENT */}
-      {selectedRoles.length === 0 || (!consolidatedPath && !isRerouting) ? (
-        /* Empty State Prompting User to Select Filters */
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white border border-dashed border-[#E5E9F0] rounded-3xl p-16 text-center space-y-4 shadow-sm"
-        >
-          <div className="w-16 h-16 bg-[#EEF2FF] rounded-full flex items-center justify-center mx-auto text-[#6366F1] animate-pulse">
-            <Compass className="w-8 h-8" />
-          </div>
-          <div className="max-w-md mx-auto space-y-2">
-            <h3 className="text-base font-extrabold text-[#111827]">Satellite GPS Standby</h3>
-            <p className="text-xs text-[#6B7280] font-semibold leading-relaxed">
-              {selectedRoles.length === 0 
-                ? "No target roles selected. Please check one or more boxes in the target filters dashboard above to plot your consolidated developer trajectory."
-                : "Select a role above to generate your personalized roadmap."}
+      {/* 2. Top Summary HUD */}
+      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#F3F4F6] pb-5">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <span className="text-[10px] font-bold text-[#7C3AED] uppercase tracking-wider">
+                {roadmap.summary?.currentEvidenceLevel || 'Verified Evidence Context'}
+              </span>
+            </div>
+            <h3 className="text-base sm:text-lg font-black text-[#111827] mt-1.5">
+              {roadmap.summary?.title || `Personalized Roadmap for ${roadmap.targetRoles?.join(' + ')}`}
+            </h3>
+            <p className="text-xs text-[#4B5563] font-semibold mt-0.5 leading-relaxed">
+              {roadmap.summary?.description || 'Tailored sequence of milestone competencies based on your verified developer telemetry.'}
             </p>
           </div>
-        </motion.div>
-      ) : isRerouting && !consolidatedPath ? (
-        /* Loading State while AI generates roadmap */
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white border border-dashed border-[#E5E9F0] rounded-3xl p-16 text-center space-y-4 shadow-sm"
-        >
-          <div className="w-16 h-16 bg-[#EEF2FF] rounded-full flex items-center justify-center mx-auto text-[#6366F1]">
-            <Compass className="w-8 h-8 animate-spin" style={{ animationDuration: '3s' }} />
+
+          <div className="flex items-center gap-2 self-start lg:self-center shrink-0">
+            <span className="text-[10px] font-bold text-gray-400 uppercase bg-[#FAFBFC] border border-[#E5E9F0] px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-gray-400" />
+              <span>{roadmap.generatedAt ? `Generated ${new Date(roadmap.generatedAt).toLocaleDateString()}` : 'Active'}</span>
+            </span>
           </div>
-          <div className="max-w-md mx-auto space-y-2">
-            <h3 className="text-base font-extrabold text-[#111827]">Calculating Route…</h3>
-            <p className="text-xs text-[#6B7280] font-semibold leading-relaxed">
-              AI is generating your personalized career roadmap. This may take 10–20 seconds.
-            </p>
-          </div>
-        </motion.div>
-      ) : (
-        /* Active GPS Trajectory Details */
-        <div className="space-y-6">
+        </div>
+
+        {/* Metrics Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            {/* LIGHT THEMED TELEMETRY HUD (Redesigned completely as requested) */}
-            <motion.div 
-              whileHover={{ y: -2 }}
-              className="lg:col-span-8 bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[260px] relative overflow-hidden gps-grid text-[#111827]"
-            >
-              {/* Telemetry Header */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-[#F3F4F6] pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
-                  <div>
-                    <span className="text-[9px] font-extrabold text-[#6366F1] uppercase tracking-wider block">GPS Route Plotted</span>
-                    <h3 className="text-sm font-extrabold text-[#111827] mt-0.5">
-                      Destination: {selectedRoles.length > 2 ? `${selectedRoles[0]} & More` : selectedRoles.join(" + ")}
-                    </h3>
-                  </div>
-                </div>
-
-                <div className="flex gap-5 text-xs">
-                  <div>
-                    <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase block">ESTIMATED TIME</span>
-                    <span className="font-extrabold text-slate-700">{consolidatedPath.timeframe}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase block">ROUTE STATUS</span>
-                    <span className="font-extrabold text-emerald-600">Optimal (1.2x)</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* HUD Telemetry Stats and Dial */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 my-5 items-center">
-                
-                {/* Radial Gauge */}
-                <div className="sm:col-span-4 flex justify-center">
-                  <div className="relative w-32 h-32 flex items-center justify-center bg-[#F8FAFC] rounded-full border border-[#E2E8F0] p-1.5 shadow-inner">
-                    <svg className="w-full h-full transform -rotate-90">
-                      <circle cx="64" cy="64" r="54" stroke="#EEF2FF" strokeWidth="6" fill="transparent" />
-                      <motion.circle 
-                        cx="64" 
-                        cy="64" 
-                        r="54" 
-                        stroke="url(#indigoGrad)" 
-                        strokeWidth="6" 
-                        fill="transparent" 
-                        strokeDasharray={339.2}
-                        initial={{ strokeDashoffset: 339.2 }}
-                        animate={{ strokeDashoffset: 339.2 - (339.2 * consolidatedPath.readiness) / 100 }}
-                        transition={{ duration: 1, ease: "easeOut" }}
-                        strokeLinecap="round"
-                      />
-                      <defs>
-                        <linearGradient id="indigoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor="#6366F1" />
-                          <stop offset="100%" stopColor="#8B5CF6" />
-                        </linearGradient>
-                      </defs>
-                    </svg>
-                    <div className="absolute text-center">
-                      <span className="text-2xl font-black text-[#111827]">{consolidatedPath.readiness}%</span>
-                      <span className="text-[8px] font-extrabold text-[#6366F1] uppercase tracking-wider block">COMPATIBLE</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Next Turn Instruction */}
-                <div className="sm:col-span-8 space-y-3">
-                  <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl p-4 flex gap-3 shadow-sm">
-                    <div className="w-8 h-8 rounded-xl bg-[#6366F1]/10 border border-[#6366F1]/15 flex items-center justify-center shrink-0">
-                      <Navigation className="w-4 h-4 text-[#6366F1] transform rotate-45" />
-                    </div>
-                    <div>
-                      <h4 className="text-[10px] font-extrabold text-[#6366F1] uppercase tracking-wider">Navigation Instruction</h4>
-                      <p className="text-xs font-semibold text-[#4B5563] mt-0.5 leading-relaxed">
-                        {consolidatedPath.nextAction}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <span className="text-[9px] font-bold bg-slate-50 border border-slate-200 text-slate-600 px-2.5 py-1 rounded-lg">
-                      Goal Target: {consolidatedPath.targetScore}%
-                    </span>
-                    <span className="text-[9px] font-bold bg-[#E6F4EA] border border-emerald-100 text-emerald-700 px-2.5 py-1 rounded-lg">
-                      {consolidatedPath.milestones.filter(m => m.status === 'completed').length} / {consolidatedPath.milestones.length} Milestones Complete
-                    </span>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Status Ticks bottom */}
-              <div className="flex justify-between items-center text-[9px] text-[#9CA3AF] border-t border-[#F3F4F6] pt-3">
-                <span className="font-mono">TELEMETRY LOCK ACTIVE</span>
-                <span className="font-semibold">GPS ENGINE V2.9 // MULTI-TRAJECTORY OPTIMIZATION</span>
-              </div>
-            </motion.div>
-
-            {/* AI Detour Prompt */}
-            <motion.div 
-              whileHover={{ y: -2 }}
-              className="lg:col-span-4 bg-gradient-to-br from-[#7C3AED] to-[#6D28D9] text-white rounded-3xl p-6 shadow-md flex flex-col justify-between"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-extrabold tracking-wider uppercase text-purple-200">
-                    AI Reroute Recommendation
-                  </span>
-                  <span className="bg-white/20 text-white text-[8px] font-bold px-2 py-0.5 rounded-full">
-                    Bypass Ready
-                  </span>
-                </div>
-                <h3 className="text-sm font-extrabold leading-snug">
-                  Accelerate through Caching?
-                </h3>
-                <p className="text-[11px] leading-relaxed text-purple-100 font-medium">
-                  Scanned repository commits in <code>/scaling-db</code> contain Redis/Kafka queue configurations. Accept the detour to bypass Milestone 1 basics?
-                </p>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                <button 
-                  onClick={() => setShowDetourModal(true)}
-                  className="px-4 py-2 bg-white text-[#7C3AED] hover:bg-purple-50 font-bold text-xs rounded-xl shadow w-full text-center block cursor-pointer"
-                >
-                  Review Reroute Path
-                </button>
-              </div>
-            </motion.div>
-
+          {/* Total Effort */}
+          <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-4 space-y-1">
+            <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Estimated Total Effort</span>
+            <div className="text-2xl font-black text-[#111827]">~{totalHours} Hours</div>
+            <p className="text-[10px] text-[#9CA3AF] font-bold">Sum of individual milestone estimates</p>
           </div>
 
-          {/* Company Optimizer Gaps */}
-          <div className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-[#111827] uppercase tracking-wider flex items-center gap-2">
-                <Target className="w-4 h-4 text-[#6366F1]" />
-                Optimize Route for Target Company Match
-              </h3>
-              {selectedCompany && (
-                <button 
-                  onClick={() => setSelectedCompany(null)}
-                  className="text-[10px] font-bold text-[#6366F1] hover:underline"
-                >
-                  Clear alignment
-                </button>
-              )}
-            </div>
+          {/* Dynamic Duration */}
+          <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-4 space-y-1">
+            <span className="text-[10px] font-bold text-[#7C3AED] uppercase tracking-wider">Target Timeline</span>
+            <div className="text-2xl font-black text-[#7C3AED]">≈ {totalWeeks} Weeks</div>
+            <p className="text-[10px] text-[#9CA3AF] font-bold">At {activeWeeklyHours}h / week pace</p>
+          </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-              {(companies || []).map((comp) => {
-                const isSelected = selectedCompany?.name === comp.name;
-                return (
-                  <motion.button
-                    key={comp.id}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleCompanyRouteOptimize(comp)}
-                    className={`p-3.5 rounded-2xl border text-left flex flex-col justify-between gap-2.5 relative cursor-pointer ${
+          {/* Target Roles Breakdown */}
+          <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-4 space-y-1.5 sm:col-span-2 lg:col-span-1">
+            <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Target Roles</span>
+            <div className="flex flex-wrap gap-1.5">
+              {roadmap.targetRoles?.map((r, idx) => (
+                <span key={idx} className="text-[10px] font-extrabold px-2 py-0.5 bg-white border border-[#E5E9F0] text-[#111827] rounded-md">
+                  {r}
+                </span>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Primary Focus Areas Pills */}
+        {roadmap.summary?.primaryFocus?.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#F3F4F6]">
+            <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Primary Focus:</span>
+            {roadmap.summary.primaryFocus.map((focus, fIdx) => (
+              <span key={fIdx} className="text-xs font-bold px-2.5 py-0.5 rounded-lg bg-purple-50 text-[#7C3AED] border border-purple-100">
+                {focus}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 3. Main Milestone Dependency Graph & Detail Inspector */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Left Column (8 cols): Vertical Milestone Cards with Non-Locking Downward Connectors */}
+        <div className="lg:col-span-8 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-[#111827] uppercase tracking-wider flex items-center gap-2">
+              <span>Prerequisite Dependency Sequence</span>
+              <span className="text-[10px] font-normal text-gray-400">({milestones.length} Stages)</span>
+            </h3>
+            <span className="text-[11px] font-bold text-[#6B7280]">
+              Arrows denote recommended prerequisites
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            {milestones.map((milestone, idx) => {
+              const isSelected = activeMilestone?.id === milestone.id;
+              const prereqObjects = (milestone.prerequisites || [])
+                .map(pId => milestoneMap.get(pId))
+                .filter(Boolean);
+
+              return (
+                <React.Fragment key={milestone.id || idx}>
+                  <motion.div
+                    layout
+                    onClick={() => setSelectedMilestoneId(milestone.id)}
+                    whileHover={{ y: -1 }}
+                    className={`bg-white border rounded-3xl p-6 shadow-xs cursor-pointer transition-all space-y-4 relative ${
                       isSelected 
-                        ? 'border-[#6366F1] bg-[#EEF2FF]/40 ring-1 ring-[#6366F1]/10' 
-                        : 'border-[#E5E9F0] bg-white hover:border-[#CBD5E1]'
+                        ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/10 bg-purple-50/5' 
+                        : 'border-[#E5E9F0] hover:border-gray-300'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <img src={comp.logo} alt={comp.name} className="w-5.5 h-5.5 rounded-lg object-cover border border-[#F3F4F6]" />
-                      <span className="text-xs font-bold text-[#111827]">{comp.name}</span>
-                    </div>
-                    <div>
-                      <span className="text-sm font-black text-[#111827]">{comp.matchScore}% Match</span>
-                      <span className="text-[9px] font-bold text-[#6366F1] block mt-0.5 uppercase tracking-wide">
-                        {comp.tier} Tier
-                      </span>
-                    </div>
-                    {isSelected && (
-                      <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-[#6366F1] animate-ping"></span>
-                    )}
-                  </motion.button>
-                );
-              })}
-            </div>
-
-            {selectedCompany && (
-              <div className="p-3 bg-[#EEF2FF]/70 border border-[#C7D2FE] rounded-2xl flex items-start gap-2.5 text-xs text-indigo-900 leading-normal">
-                <Info className="w-4 h-4 text-[#6366F1] shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-bold">GPS Optimizer Target: {selectedCompany.name}</p>
-                  <p className="text-[11px] text-indigo-800 mt-0.5">
-                    Critical gaps to target: <span className="font-bold text-red-600">{selectedCompany.missing.join(', ')}</span>. Leveling these will prioritize matching index scores.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* DYNAMIC TIMELINE ROADMAP TRACK & SIDE DETAILS */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
-            {/* Left page: track or radar */}
-            <div className="lg:col-span-8 space-y-6">
-              
-              {/* Tab toggles */}
-              <div className="flex justify-between items-center border-b border-[#F3F4F6] pb-3">
-                <div className="flex gap-4">
-                  <button 
-                    onClick={() => setActiveTab("timeline")}
-                    className={`text-xs font-bold uppercase tracking-wider pb-3 -mb-3 border-b-2 transition-all ${
-                      activeTab === "timeline" ? "text-[#111827] border-[#6366F1]" : "text-[#9CA3AF] border-transparent"
-                    }`}
-                  >
-                    GPS Timeline Track
-                  </button>
-                  <button 
-                    onClick={() => setActiveTab("skills")}
-                    className={`text-xs font-bold uppercase tracking-wider pb-3 -mb-3 border-b-2 transition-all ${
-                      activeTab === "skills" ? "text-[#111827] border-[#6366F1]" : "text-[#9CA3AF] border-transparent"
-                    }`}
-                  >
-                    Skills Gap Analysis
-                  </button>
-                </div>
-              </div>
-
-              {activeTab === "timeline" ? (
-                /* Dynamic Timeline List */
-                <div className="space-y-5 relative pl-9 before:absolute before:top-4 before:left-[17px] before:bottom-4 before:w-0.5 before:bg-[#E5E9F0] before:border-dashed">
-                  {consolidatedPath.milestones.map((ms, idx) => {
-                    const isSelected = selectedMilestone?.id === ms.id;
-                    const isCritical = isMilestoneCritical(ms.title);
-                    
-                    return (
-                      <div key={ms.id} className="relative">
-                        
-                        {/* Dot indicator */}
-                        <div className="absolute -left-[34px] top-2">
-                          {ms.status === 'completed' ? (
-                            <div className="w-7 h-7 rounded-full bg-[#E8F5E9] border border-white flex items-center justify-center text-[#10B981] shadow-sm">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
-                            </div>
-                          ) : ms.status === 'in-progress' ? (
-                            <div className="w-7 h-7 rounded-full bg-[#EEF2FF] border border-[#6366F1] flex items-center justify-center shadow relative">
-                              <span className="w-2 h-2 bg-[#6366F1] rounded-full animate-ping absolute inline-flex"></span>
-                              <span className="w-2 h-2 bg-[#6366F1] rounded-full relative inline-flex"></span>
-                            </div>
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-white border border-[#E5E9F0] flex items-center justify-center text-[#9CA3AF] shadow-sm">
-                              <Lock className="w-3 h-3" />
-                            </div>
-                          )}
+                    {/* Header: Sequence Index, Title, Type, Effort */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3.5">
+                        <div className="w-8 h-8 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-xs font-black text-[#7C3AED] shrink-0 mt-0.5 shadow-2xs">
+                          {idx + 1}
                         </div>
-
-                        {/* Node Card */}
-                        <motion.div
-                          whileHover={{ y: -1 }}
-                          onClick={() => setSelectedMilestone(ms)}
-                          className={`bg-white border rounded-2xl p-5 shadow-sm text-left transition-all cursor-pointer flex flex-col justify-between gap-3.5 ${
-                            isSelected 
-                              ? 'border-[#6366F1] ring-1 ring-[#6366F1]/10' 
-                              : 'border-[#E5E9F0]'
-                          } ${ms.status === 'locked' ? 'opacity-70' : ''}`}
-                        >
-                          <div className="flex justify-between items-start gap-4">
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[9px] font-extrabold text-[#6366F1] uppercase tracking-wide">
-                                  STAGE {idx + 1}
-                                </span>
-                                {isCritical && (
-                                  <span className="bg-red-50 border border-red-100 text-red-600 text-[8px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                                    <AlertCircle className="w-2.5 h-2.5" /> Gaps block for {selectedCompany?.name}
-                                  </span>
-                                )}
-                              </div>
-                              <h4 className="text-sm font-bold text-[#111827] mt-0.5">{ms.title}</h4>
-                            </div>
-
-                            {ms.status !== 'locked' && (
-                              <div className="text-right">
-                                <span className="text-xs font-black text-slate-800">{ms.progress}%</span>
-                                <span className="text-[8px] font-semibold text-slate-400 block uppercase">Completed</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <p className="text-xs text-[#6B7280] font-semibold leading-relaxed">
-                            {ms.desc}
-                          </p>
-
-                          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#F3F4F6] pt-3">
-                            <div className="flex flex-wrap gap-1">
-                              {ms.tags.map((tag, tIdx) => (
-                                <span 
-                                  key={tIdx} 
-                                  className="text-[9px] px-2.5 py-0.5 rounded-md border bg-[#FAFBFC] border-[#E5E9F0] text-[#4B5563] font-bold"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                            <span className="text-[10px] text-[#6366F1] font-bold flex items-center gap-0.5">
-                              View steps <ChevronRight className="w-3.5 h-3.5" />
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="text-sm font-bold text-[#111827] leading-snug">
+                              {milestone.title}
+                            </h4>
+                            <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase ${
+                              milestone.type === 'Foundation'
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                : milestone.type === 'Project'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : milestone.type === 'Advanced Skill'
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : 'bg-purple-50 text-[#7C3AED] border border-purple-200'
+                            }`}>
+                              {milestone.type || 'Core Skill'}
                             </span>
                           </div>
-                        </motion.div>
 
+                          <p className="text-xs text-[#4B5563] font-semibold leading-relaxed">
+                            {milestone.description}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0 space-y-1">
+                        <div className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-slate-100 text-slate-800">
+                          <Clock className="w-3 h-3 text-slate-500" />
+                          <span>{milestone.estimatedHours}h effort</span>
+                        </div>
+
+                        {milestone.gapLevel && (
+                          <span className={`block text-[9px] font-bold px-2 py-0.5 rounded uppercase ${
+                            milestone.gapLevel === 'high' 
+                              ? 'text-amber-700 bg-amber-50' 
+                              : milestone.gapLevel === 'low'
+                              ? 'text-emerald-700 bg-emerald-50'
+                              : 'text-purple-700 bg-purple-50'
+                          }`}>
+                            {milestone.gapLevel} Gap
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Why this milestone matters */}
+                    {milestone.whyItMatters && (
+                      <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3.5 text-xs text-[#4B5563] space-y-0.5">
+                        <span className="font-bold text-[#111827] text-[11px] block">
+                          Why this matters for target role:
+                        </span>
+                        <p className="font-semibold text-[11px] leading-relaxed text-[#4B5563]">
+                          {milestone.whyItMatters}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Concrete Outcome */}
+                    {milestone.outcome && (
+                      <div className="text-xs text-[#111827] font-semibold flex items-start gap-2 pt-1">
+                        <Target className="w-3.5 h-3.5 text-[#7C3AED] shrink-0 mt-0.5" />
+                        <span className="text-[11px] leading-relaxed">
+                          <strong className="text-[#111827]">Expected Outcome:</strong> {milestone.outcome}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Suggested Project */}
+                    {milestone.suggestedProject && (
+                      <div className="bg-emerald-50/50 border border-emerald-200 rounded-2xl p-3 text-xs text-emerald-900 flex items-start gap-2">
+                        <FolderGit2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold block text-[11px]">Recommended Showcase Project:</span>
+                          <p className="text-[11px] font-semibold leading-relaxed mt-0.5">{milestone.suggestedProject}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Footer: Skills Tags & Prerequisite Links */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-[#F3F4F6]">
+                      {/* Skills badges */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {milestone.skills?.map((skill, sIdx) => (
+                          <span 
+                            key={sIdx}
+                            className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-[#F3F4F6] text-[#4B5563]"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Prerequisites info */}
+                      {prereqObjects.length > 0 ? (
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold text-[#6B7280]">
+                          <span className="text-gray-400">Prereq:</span>
+                          {prereqObjects.map((p, pIdx) => (
+                            <span 
+                              key={pIdx} 
+                              className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md flex items-center gap-1"
+                              title={`Recommended prerequisite: ${p.title}`}
+                            >
+                              <Link2 className="w-2.5 h-2.5 text-slate-500" />
+                              <span>{p.title.split(' ')[0]} {p.title.split(' ')[1] || ''}</span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] font-bold text-gray-400">
+                          Direct Foundation
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+
+                  {/* Visual Downward Dependency Connector Line */}
+                  {idx < milestones.length - 1 && (
+                    <div className="flex items-center justify-center py-1">
+                      <div className="flex flex-col items-center">
+                        <div className="w-0.5 h-3 bg-gradient-to-b from-[#7C3AED]/40 to-[#7C3AED]" />
+                        <ArrowDown className="w-3.5 h-3.5 text-[#7C3AED] -mt-1" />
+                      </div>
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right Column (4 cols): Selected Milestone Deep-Dive Inspector */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-5 sticky top-6">
+            
+            <div className="flex items-center justify-between pb-3 border-b border-[#F3F4F6]">
+              <span className="text-[10px] font-bold text-[#7C3AED] uppercase tracking-wider">
+                Milestone Details & Guidance
+              </span>
+              <span className="text-[10px] font-bold text-gray-400">
+                Stage {activeMilestone?.sequenceIndex || 1} of {milestones.length}
+              </span>
+            </div>
+
+            {activeMilestone ? (
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase ${
+                      activeMilestone.type === 'Foundation'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : activeMilestone.type === 'Project'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-purple-50 text-[#7C3AED] border border-purple-200'
+                    }`}>
+                      {activeMilestone.type || 'Core Skill'}
+                    </span>
+                    <span className="text-[10px] font-bold text-[#6B7280]">
+                      ~{activeMilestone.estimatedHours} Hours Estimated Effort
+                    </span>
+                  </div>
+
+                  <h4 className="text-sm font-bold text-[#111827]">
+                    {activeMilestone.title}
+                  </h4>
+                  <p className="text-xs text-[#4B5563] font-semibold mt-1 leading-relaxed">
+                    {activeMilestone.description}
+                  </p>
+                </div>
+
+                {/* Rationale */}
+                {activeMilestone.whyItMatters && (
+                  <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-4 space-y-1">
+                    <span className="text-[10px] font-bold text-[#111827] uppercase tracking-wider block">
+                      Role Competency Rationale
+                    </span>
+                    <p className="text-xs text-[#4B5563] font-semibold leading-relaxed">
+                      {activeMilestone.whyItMatters}
+                    </p>
+                  </div>
+                )}
+
+                {/* Expected Outcome */}
+                {activeMilestone.outcome && (
+                  <div className="bg-purple-50/40 border border-purple-100 rounded-2xl p-4 space-y-1">
+                    <span className="text-[10px] font-bold text-[#7C3AED] uppercase tracking-wider block">
+                      Target Competency Outcome
+                    </span>
+                    <p className="text-xs text-[#111827] font-semibold leading-relaxed">
+                      {activeMilestone.outcome}
+                    </p>
+                  </div>
+                )}
+
+                {/* Suggested Project Showcase */}
+                {activeMilestone.suggestedProject && (
+                  <div className="bg-emerald-50/50 border border-emerald-200 rounded-2xl p-4 space-y-1">
+                    <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                      Hands-on Project Blueprint
+                    </span>
+                    <p className="text-xs text-emerald-950 font-semibold leading-relaxed">
+                      {activeMilestone.suggestedProject}
+                    </p>
+                  </div>
+                )}
+
+                {/* Non-locking Navigation Tip */}
+                <div className="border-t border-[#F3F4F6] pt-3 text-[11px] text-[#6B7280] font-medium flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4 text-purple-400 shrink-0" />
+                  <span>Click any milestone to inspect its prerequisite relationship and learning objectives.</span>
+                </div>
+
+              </div>
+            ) : (
+              <div className="p-8 text-center text-gray-400 text-xs font-semibold">
+                Select a milestone to inspect detailed requirements.
+              </div>
+            )}
+
+          </div>
+        </div>
+
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          TRACK SETTINGS POPOVER / MODAL
+          ───────────────────────────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isSettingsOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-7 shadow-2xl w-full max-w-lg space-y-6 text-left"
+            >
+              <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-4">
+                <div className="flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-[#7C3AED]" />
+                  <h3 className="text-sm font-bold text-[#111827]">
+                    Roadmap Track Settings
+                  </h3>
+                </div>
+                <button
+                  onClick={handleCloseSettings}
+                  className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center cursor-pointer transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Roles Multi-Select List */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="text-[#6B7280]">Target Career Destinations</span>
+                  <span className="text-[#7C3AED]">{pendingRoles.length} selected</span>
+                </div>
+
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {ROLE_OPTIONS.map((role) => {
+                    const isChecked = pendingRoles.includes(role.id);
+                    return (
+                      <div
+                        key={role.id}
+                        onClick={() => handleTogglePendingRole(role.id)}
+                        className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${
+                          isChecked 
+                            ? 'bg-purple-50/50 border-[#7C3AED] text-[#111827]' 
+                            : 'bg-[#FAFBFC] border-[#E5E9F0] text-[#4B5563] hover:bg-white'
+                        }`}
+                      >
+                        <div>
+                          <h5 className="text-xs font-bold">{role.label}</h5>
+                          <p className="text-[10px] text-[#6B7280]">{role.desc}</p>
+                        </div>
+                        <div className={`w-4 h-4 rounded-md flex items-center justify-center border shrink-0 ${
+                          isChecked ? 'bg-[#7C3AED] border-[#7C3AED] text-white' : 'border-[#CBD5E1] bg-white'
+                        }`}>
+                          {isChecked && <CheckCircle2 className="w-3 h-3" />}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
-              ) : (
-                /* Interactive Skill Gap sliders and radar */
-                <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-sm space-y-6">
-                  <div className="flex justify-between items-center border-b border-[#F3F4F6] pb-4">
-                    <div>
-                      <h4 className="text-xs font-bold text-[#111827] uppercase tracking-wider">Unified Skill Delta Telemetry</h4>
-                      <p className="text-[11px] text-[#6B7280] font-semibold mt-0.5">Merged target thresholds vs credentials mapped.</p>
-                    </div>
-                    
+              </div>
+
+              {/* Weekly Time Budget Selector */}
+              <div className="space-y-2 pt-2 border-t border-[#F3F4F6]">
+                <span className="text-xs font-bold text-[#6B7280] block">Weekly Time Budget</span>
+                <div className="flex items-center gap-2">
+                  {WEEKLY_BUDGETS.map(hours => (
                     <button
-                      onClick={() => setIsSelfAssessMode(!isSelfAssessMode)}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${
-                        isSelfAssessMode 
-                          ? 'bg-amber-500 text-white border-amber-500' 
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      key={hours}
+                      type="button"
+                      onClick={() => setPendingWeeklyHours(hours)}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        pendingWeeklyHours === hours
+                          ? 'bg-[#111827] text-white shadow-2xs'
+                          : 'bg-[#FAFBFC] border border-[#E5E9F0] text-[#4B5563] hover:bg-gray-100'
                       }`}
                     >
-                      <Sliders className="w-3.5 h-3.5" />
-                      {isSelfAssessMode ? "Manual Simulation ON" : "Simulate Levels"}
+                      {hours}h / wk
                     </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-                    
-                    {/* Recharts chart */}
-                    <div className="md:col-span-6 h-64 flex items-center justify-center">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RadarChart cx="50%" cy="50%" outerRadius="75%" data={consolidatedPath.skills || []}>
-                          <PolarGrid stroke="#F1F5F9" />
-                          <PolarAngleAxis dataKey="subject" tick={{ fill: '#4B5563', fontSize: 10, fontWeight: 700 }} />
-                          <Radar name="Current Mapped" dataKey="current" stroke="#6366F1" fill="#6366F1" fillOpacity={0.15} strokeWidth={2} />
-                          <Radar name="Consolidated Target" dataKey="target" stroke="#10B981" fill="#10B981" fillOpacity={0.03} strokeWidth={1.5} strokeDasharray="3 3" />
-                          <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
-                        </RadarChart>
-                      </ResponsiveContainer>
-                    </div>
-
-                    {/* Range controls */}
-                    <div className="md:col-span-6 space-y-4">
-                      {(consolidatedPath.skills || []).map((s, idx) => (
-                        <div key={idx} className="space-y-1.5 text-xs">
-                          <div className="flex justify-between font-bold text-slate-700">
-                            <span>{s.subject}</span>
-                            <span className="text-[#6366F1]">{s.current}% / <span className="text-[#10B981]">{s.target}%</span></span>
-                          </div>
-                          
-                          {isSelfAssessMode ? (
-                            <input 
-                              type="range" 
-                              min="10" 
-                              max="100" 
-                              value={s.current}
-                              onChange={(e) => handleSkillSliderChange(idx, e.target.value)}
-                              className="w-full h-1.5 bg-[#F3F4F6] rounded-lg appearance-none cursor-pointer accent-[#6366F1]"
-                            />
-                          ) : (
-                            <div className="w-full bg-[#F3F4F6] h-1.5 rounded-full overflow-hidden relative">
-                              <div className="absolute top-0 bottom-0 w-0.5 bg-[#10B981] z-10" style={{ left: `${s.target}%` }}></div>
-                              <div className="h-full bg-indigo-500" style={{ width: `${s.current}%` }}></div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Right page details panel */}
-            <div className="lg:col-span-4 space-y-6">
-              <h3 className="text-xs font-bold text-[#111827] uppercase tracking-wider">
-                GPS Direction Steps
-              </h3>
-
-              <AnimatePresence mode="wait">
-                {selectedMilestone ? (
-                  <motion.div
-                    key={selectedMilestone.id}
-                    initial={{ opacity: 0, x: 10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-sm space-y-5 text-left"
-                  >
-                    <div>
-                      <span className="text-[9px] font-extrabold text-[#6366F1] uppercase tracking-widest block">
-                        Milestone Detail Board
-                      </span>
-                      <h4 className="text-sm font-bold text-[#111827] mt-0.5">{selectedMilestone.title}</h4>
-                      
-                      <div className="w-full bg-[#F3F4F6] h-1 rounded-full overflow-hidden mt-3">
-                        <div 
-                          className="h-full bg-gradient-to-r from-[#6366F1] to-[#8B5CF6]" 
-                          style={{ width: `${selectedMilestone.progress}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    {/* Task checklist */}
-                    <div className="space-y-3 border-t border-[#F3F4F6] pt-4">
-                      <h5 className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Subtask Checklist</h5>
-                      
-                      {selectedMilestone.subtasks.map((task) => (
-                        <div 
-                          key={task.id}
-                          onClick={() => {
-                            if (selectedMilestone.status !== 'locked') {
-                              handleToggleSubtask(selectedMilestone.id, task.id);
-                            }
-                          }}
-                          className={`flex gap-3 items-start p-2 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
-                            selectedMilestone.status === 'locked' 
-                              ? 'opacity-60 cursor-not-allowed border-slate-100' 
-                              : 'hover:bg-[#FAFBFC] border-slate-100 hover:border-slate-200'
-                          }`}
-                        >
-                          <div className="shrink-0 mt-0.5 text-[#6366F1]">
-                            {task.completed ? (
-                              <CheckSquare className="w-4 h-4 text-emerald-500 fill-emerald-50" />
-                            ) : (
-                              <Square className="w-4 h-4 text-slate-300" />
-                            )}
-                          </div>
-                          <span className={task.completed ? "text-slate-400 line-through font-medium" : "text-slate-700"}>
-                            {task.text}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="p-3 bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">UNLOCKED COMPETENCY</span>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Award className="w-4 h-4 text-[#6366F1]" />
-                        <span className="text-xs font-bold text-slate-700">
-                          {selectedMilestone.tags[0]} credentials verified
-                        </span>
-                      </div>
-                    </div>
-
-                  </motion.div>
-                ) : (
-                  <div className="bg-white border border-dashed border-[#E5E9F0] rounded-3xl p-6 text-center text-[#9CA3AF] text-xs font-semibold">
-                    Select a timeline stage node to check directions tasks.
-                  </div>
-                )}
-              </AnimatePresence>
-
-              {/* Traffic details */}
-              <div className="bg-gradient-to-br from-indigo-50 to-[#EEF2FF] border border-indigo-100 text-[#6366F1] rounded-3xl p-5 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 animate-pulse" />
-                  <span className="text-[10px] font-bold tracking-wider uppercase">
-                    Route Traffic Alerts
-                  </span>
-                </div>
-                <p className="text-[11px] leading-relaxed text-[#4B5563] font-semibold">
-                  Active hiring index scores for DevOps and System Design are peaking. Accelerating these modules improves resume matching index thresholds significantly.
-                </p>
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-      )}
-
-      {/* DETOUR CONFIRMATION MODAL */}
-      <AnimatePresence>
-        {showDetourModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-2xl max-w-md w-full text-left space-y-4"
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center text-[#7C3AED]">
-                    <Sparkles className="w-4.5 h-4.5" />
-                  </div>
-                  <div>
-                    <h3 className="font-extrabold text-slate-900 text-sm">AI Route Telemetry Bypass</h3>
-                    <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-wider">Telemetric detour options</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowDetourModal(false)}
-                  className="text-slate-400 hover:text-slate-600 font-bold"
-                >
-                  &times;
-                </button>
-              </div>
-
-              <div className="p-3.5 bg-purple-50 border border-purple-100 rounded-2xl space-y-1">
-                <p className="text-xs text-[#7C3AED] font-bold">Bypass Option Detected</p>
-                <p className="text-[11px] text-purple-900 leading-relaxed font-semibold">
-                  Scanned repository configurations in <code>/scaling-db</code> contain Redis/Kafka queue configurations. This matches target credentials for stage 1. Accept Reroute to skip?
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-xs font-semibold">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-[9px] font-bold text-slate-400 block uppercase">Standard</span>
-                  <div className="font-black text-slate-800 mt-0.5">14 days to go</div>
-                  <p className="text-[9px] text-slate-500 mt-1 leading-normal font-semibold">
-                    Complete all basic caching tutorial modules step by step.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-[#EEF2FF] rounded-xl border border-[#C7D2FE]">
-                  <span className="text-[9px] font-bold text-[#6366F1] block uppercase">AI Detour</span>
-                  <div className="font-black text-indigo-700 mt-0.5">Skip Stage 1 ⚡</div>
-                  <p className="text-[9px] text-indigo-600 mt-1 leading-normal font-semibold">
-                    Bypass basic modules. Transition immediately onto active scale topics.
-                  </p>
+                  ))}
                 </div>
               </div>
 
-              <div className="flex gap-2.5 pt-3 border-t border-[#F3F4F6]">
+              {/* Modal Footer Actions */}
+              <div className="flex items-center justify-between gap-3 pt-4 border-t border-[#F3F4F6]">
                 <button
-                  onClick={() => setShowDetourModal(false)}
-                  className="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer text-center"
+                  type="button"
+                  onClick={handleCloseSettings}
+                  className="px-4 py-2.5 text-xs font-bold text-[#6B7280] hover:text-[#111827] cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
-                  onClick={handleAcceptDetour}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-[#6366F1] to-[#7C3AED] text-white text-xs font-bold rounded-xl shadow cursor-pointer text-center"
+
+                <motion.button
+                  whileHover={{ scale: isSettingsDirty && pendingRoles.length > 0 ? 1.02 : 1 }}
+                  whileTap={{ scale: isSettingsDirty && pendingRoles.length > 0 ? 0.98 : 1 }}
+                  onClick={handleRegenerateFromSettings}
+                  disabled={!isSettingsDirty || pendingRoles.length === 0}
+                  className="px-5 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-40 text-white font-extrabold text-xs rounded-xl shadow-xs cursor-pointer disabled:cursor-not-allowed flex items-center gap-2 transition-all"
                 >
-                  Accept Bypass
-                </button>
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Regenerate Roadmap</span>
+                </motion.button>
               </div>
+
             </motion.div>
           </div>
         )}

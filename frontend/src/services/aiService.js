@@ -1,14 +1,24 @@
 import api from './api';
 
 export const aiService = {
+  getSkillProfile: async () => {
+    const res = await api.get('/ai/skills');
+    return res.data; // { profile, readiness }
+  },
+
   analyzeSkills: async () => {
     const res = await api.post('/ai/skills/analyze');
-    return res.data;
+    return res.data; // { message, profile }
+  },
+
+  getRoadmap: async () => {
+    const res = await api.get('/ai/roadmap');
+    return res.data; // { roadmap, readiness }
   },
   
-  generateRoadmap: async (targetRoles) => {
-    const res = await api.post('/ai/roadmap', { targetRoles });
-    return res.data;
+  generateRoadmap: async (targetRoles, weeklyHours = 10) => {
+    const res = await api.post('/ai/roadmap', { targetRoles, weeklyHours });
+    return res.data; // { roadmap }
   },
 
   matchCompanies: async () => {
@@ -25,9 +35,6 @@ export const aiService = {
     const res = await api.get('/ai/progress-summary');
     return res.data; // { summary: "..." }
   },
-
-  updateSubtask: async (milestoneId, subtaskId, completed) => {
-    const res = await api.patch('/ai/roadmap/subtask', { milestoneId, subtaskId, completed });
-    return res.data;
-  },
 };
+
+export default aiService;

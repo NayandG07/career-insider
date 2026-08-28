@@ -52,22 +52,10 @@ export default function Sources() {
       lastSync: "Yesterday",
       latency: "310ms",
       retries: "0/3",
-      stale: "Yes (24h+ check)",
+      stale: "No",
       errors: "None",
       icon: LineChart,
       color: "bg-blue-600 text-white"
-    },
-    {
-      name: "KaggleAdapter",
-      source: "Kaggle API Snapshot",
-      status: "Healthy",
-      lastSync: "3 days ago",
-      latency: "1.2s",
-      retries: "0/3",
-      stale: "Yes (stale datasets)",
-      errors: "None",
-      icon: Database,
-      color: "bg-sky-500 text-white"
     },
     {
       name: "ResumeAdapter",

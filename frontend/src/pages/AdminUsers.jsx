@@ -312,7 +312,7 @@ export default function AdminUsers() {
                     <div>
                       <span className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider block">Source Handles</span>
                       <div className="grid grid-cols-2 gap-2 mt-1.5 text-[11px] font-semibold text-[#374151]">
-                        {['github', 'leetcode', 'codeforces', 'kaggle'].map((src) => {
+                        {['github', 'leetcode', 'codeforces'].map((src) => {
                           const val = selectedUser.connectedSources?.[src];
                           return (
                             <div key={src} className="p-2 bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl flex items-center justify-between">

@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { 
   Sparkles, 
   Compass, 
@@ -51,7 +51,7 @@ export default function Recommendations() {
       company: "Netflix",
       compatibility: 76,
       gaps: ["Kubernetes Clusters setup (P1)"],
-      coreEvidence: "Validated via Kaggle Notebooks & Python notebooks."
+      coreEvidence: "Validated via GitHub Repositories & Python backend pipelines."
     }
   ];
 

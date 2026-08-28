@@ -17,7 +17,6 @@ import projectRoutes from './routes/projectRoutes.js';
 import githubRoutes from './routes/githubRoutes.js';
 import codeforcesRoutes from './routes/codeforcesRoutes.js';
 import leetcodeRoutes from './routes/leetcodeRoutes.js';
-import kaggleRoutes from './routes/kaggleRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -25,7 +24,6 @@ const PORT = process.env.PORT || 5000;
 // Log OAuth initialization status safely
 console.log(`[CareerOS] Server running on port ${PORT}`);
 console.log(`[CareerOS] GitHub OAuth App ID: ${process.env.GITHUB_CLIENT_ID ? process.env.GITHUB_CLIENT_ID.slice(0, 6) + '...' : 'Not Configured'}`);
-console.log(`[CareerOS] Kaggle OAuth App ID: ${process.env.KAGGLE_CLIENT_ID ? process.env.KAGGLE_CLIENT_ID.slice(0, 6) + '...' : 'Not Configured'}`);
 
 // ─── Middleware ───────────────────────────────────────────
 app.use(cors({
@@ -48,7 +46,6 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/github', githubRoutes);
 app.use('/api/codeforces', codeforcesRoutes);
 app.use('/api/leetcode', leetcodeRoutes);
-app.use('/api/kaggle', kaggleRoutes);
 
 
 // ─── Health Check ─────────────────────────────────────────

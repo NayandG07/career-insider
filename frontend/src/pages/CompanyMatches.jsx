@@ -24,8 +24,7 @@ const DEFAULT_COMPANIES = [
     tags: ['Go / Infrastructure', 'Distributed Systems', 'API Architecture', 'PostgreSQL'],
     breakdown: [
       { factor: 'Distributed Systems & Go', desc: 'Matched from 4 high-concurrency GitHub repositories.', status: 'strong' },
-      { factor: 'LeetCode Hard Challenge Efficiency', desc: 'Top 5% speed in Graph & Dynamic Programming topics.', status: 'strong' },
-      { factor: 'Kaggle ML Model Pipeline', desc: 'Recommended: Add 1 end-to-end data pipeline project.', status: 'gap' },
+      { factor: 'Async Data Pipeline Infrastructure', desc: 'Recommended: Add 1 end-to-end event stream pipeline project.', status: 'gap' },
     ]
   },
   {

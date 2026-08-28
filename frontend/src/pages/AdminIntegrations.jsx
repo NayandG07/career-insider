@@ -62,15 +62,6 @@ export default function AdminIntegrations() {
       status: 'operational',
       latency: '310ms',
       lastSync: '4 hours ago',
-    },
-    {
-      id: 'kaggle',
-      name: 'Kaggle Notebook Scanner',
-      icon: Database,
-      color: 'bg-sky-400 text-white',
-      status: 'operational',
-      latency: '190ms',
-      lastSync: '2 hours ago',
     }
   ];
 

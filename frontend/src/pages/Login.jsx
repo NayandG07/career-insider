@@ -73,7 +73,7 @@ export default function Login({ view, setAuthView }) {
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400">in one single place.</span>
           </h1>
           <p className="text-slate-400 text-sm font-medium leading-relaxed max-w-sm">
-            Connect profiles across GitHub, LeetCode, Kaggle, and personal websites into a high-integrity developer page.
+            Connect profiles across GitHub, LeetCode, Codeforces, and personal projects into a high-integrity developer page.
           </p>
 
           <div className="space-y-4 pt-6">

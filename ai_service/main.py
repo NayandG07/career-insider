@@ -52,13 +52,14 @@ async def process_resume(req: ResumeRequest):
 class SkillRequest(BaseModel):
     telemetry: Dict[str, Any] = {}
     user_context: Dict[str, Any] = {}
+    evidence_package: Optional[Dict[str, Any]] = None
 
 @app.post("/ai/skills/analyze")
 async def process_skills(req: SkillRequest):
     """Analyze telemetry data and produce a skill profile."""
     try:
-        resume_skills = req.user_context.get("resume_skills", [])
-        result = await analyze_skills(req.telemetry, resume_skills)
+        payload = req.evidence_package or req.telemetry or {}
+        result = await analyze_skills(payload)
         return result
     except Exception as e:
         logging.error(f"Skill analysis error: {e}")
@@ -76,10 +77,10 @@ async def process_roadmap(req: RoadmapRequest):
     try:
         # Build gaps string from skill profile gap analysis
         gaps = ""
-        gap_analysis = req.skill_profile.get("gapAnalysis", [])
+        gap_analysis = req.skill_profile.get("gapAnalysis", []) or req.skill_profile.get("gap_analysis", [])
         if gap_analysis:
             gaps = "; ".join([f"{g.get('name', '')}: {g.get('delta', '')}" for g in gap_analysis])
-        result = await generate_roadmap(req.target_roles, req.skill_profile, gaps)
+        result = await generate_roadmap(req.target_roles, req.skill_profile, gaps, req.user_context)
         return result
     except Exception as e:
         logging.error(f"Roadmap generation error: {e}")
