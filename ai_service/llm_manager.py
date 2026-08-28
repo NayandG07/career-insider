@@ -98,93 +98,28 @@ class LLMManager:
 
     async def _invoke_huggingface(self, model_name: str, prompt: str, api_key: str) -> str:
         """
-        HuggingFace Hub Inference via InferenceClient.
-        Supports any dynamic model name configured in DB or passed by task.
-        Tries chat_completion first, then text_generation, and modern router endpoints.
+        HuggingFace Hub Inference — uses provider=None so HF auto-routes to the
+        best available provider for this account tier (free accounts get routed
+        through whichever third-party provider supports the model).
         """
-        hf_model = model_name.strip() if (model_name and model_name.strip()) else "deepseek-ai/DeepSeek-V4-Pro"
+        hf_model = (model_name.strip()
+                    if model_name and model_name.strip()
+                    else "Qwen/Qwen2.5-72B-Instruct")
 
-        def _run_hf_inference():
+        def _run():
+            # provider=None lets HF Hub auto-pick the available provider
             client = InferenceClient(token=api_key)
-
-            # 1. Try standard OpenAI-compatible chat_completion via Hugging Face Hub router
-            try:
-                messages = [{"role": "user", "content": prompt}]
-                response = client.chat_completion(
-                    messages=messages,
-                    model=hf_model,
-                    max_tokens=2048,
-                    temperature=0.7,
-                )
-                if response and response.choices and len(response.choices) > 0:
-                    content = response.choices[0].message.content
-                    if content is not None:
-                        return content
-            except Exception as e:
-                logger.warning(f"HuggingFace chat_completion failed for '{hf_model}': {e}. Trying text_generation...")
-
-            # 2. Try text_generation via InferenceClient
-            try:
-                gen_response = client.text_generation(
-                    prompt=prompt,
-                    model=hf_model,
-                    max_new_tokens=2048,
-                    temperature=0.7,
-                    return_full_text=False,
-                )
-                if gen_response and gen_response.strip():
-                    return gen_response.strip()
-            except Exception as e:
-                logger.warning(f"HuggingFace text_generation failed for '{hf_model}': {e}. Trying router HTTP request...")
-
-            # 3. Direct HTTP POST to modern HF router endpoint (https://router.huggingface.co/hf-inference/models/...)
-            import httpx
-            headers = {"Authorization": f"Bearer {api_key}"}
-
-            # Try router chat completions
-            try:
-                with httpx.Client(timeout=60.0) as http_client:
-                    resp = http_client.post(
-                        "https://router.huggingface.co/v1/chat/completions",
-                        json={
-                            "model": hf_model,
-                            "messages": [{"role": "user", "content": prompt}],
-                            "max_tokens": 2048,
-                            "temperature": 0.7
-                        },
-                        headers=headers
-                    )
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        return data["choices"][0]["message"]["content"]
-            except Exception as e:
-                logger.warning(f"Direct router chat completion failed for '{hf_model}': {e}")
-
-            # Try router model endpoint
-            url = f"https://router.huggingface.co/hf-inference/models/{hf_model}" if not hf_model.startswith("http") else hf_model
-            formatted_prompt = f"<s>[INST] {prompt} [/INST]"
-            payload = {
-                "inputs": formatted_prompt,
-                "parameters": {
-                    "max_new_tokens": 2048,
-                    "temperature": 0.7,
-                    "return_full_text": False
-                }
-            }
-            with httpx.Client(timeout=60.0) as http_client:
-                resp = http_client.post(url, json=payload, headers=headers)
-                resp.raise_for_status()
-                data = resp.json()
-                if isinstance(data, list) and len(data) > 0 and "generated_text" in data[0]:
-                    return data[0]["generated_text"].strip()
-                elif isinstance(data, dict) and "generated_text" in data:
-                    return data["generated_text"].strip()
-                else:
-                    return str(data)
+            response = client.chat_completion(
+                model=hf_model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=2048,
+                temperature=0.7,
+            )
+            return response.choices[0].message.content or ""
 
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(_hf_executor, _run_hf_inference)
-        return result
+        return await loop.run_in_executor(_hf_executor, _run)
+
 
     async def _try_provider(self, provider: str, model_name: str, prompt: str) -> Optional[str]:
         keys = await self._get_api_keys(provider)
@@ -248,11 +183,14 @@ class LLMManager:
             return result
 
         # 2. Iterate through fallback providers
+        # Note: pass "" so each provider uses its own sensible default
         for fallback_provider in config.fallbackChain:
             if fallback_provider == config.primaryProvider:
                 continue
             logger.info(f"Falling back to '{fallback_provider}' for task '{task}'")
-            result = await self._try_provider(fallback_provider, "", prompt)
+            # Use primary model only if provider matches, otherwise let each invoker use its default
+            fallback_model = config.primaryModel if fallback_provider == config.primaryProvider else ""
+            result = await self._try_provider(fallback_provider, fallback_model, prompt)
             if result:
                 return result
 
