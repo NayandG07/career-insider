@@ -30,6 +30,30 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    professionalRole: {
+      type: String,
+      default: 'Student',
+    },
+    experience: {
+      type: String,
+      default: '',
+    },
+    education: {
+      institution: { type: String, default: '' },
+      year: { type: String, default: '' },
+      degree: { type: String, default: '' },
+      course: { type: String, default: '' },
+      location: { type: String, default: '' },
+    },
+    educationList: [
+      {
+        institution: { type: String, default: '' },
+        year: { type: String, default: '' },
+        degree: { type: String, default: '' },
+        course: { type: String, default: '' },
+        location: { type: String, default: '' },
+      }
+    ],
     socialLinks: {
       github: { type: String, default: '' },
       linkedin: { type: String, default: '' },

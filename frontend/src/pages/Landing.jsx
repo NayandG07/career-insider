@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useScroll, useMotionValueEvent } from 'motion/react';
 import { 
   ArrowRight, 
   Code, 
@@ -13,7 +13,10 @@ import {
   Sparkles,
   ExternalLink,
   ShieldCheck,
-  TrendingUp
+  TrendingUp,
+  Activity,
+  Menu,
+  X
 } from 'lucide-react';
 
 function Typewriter({ phrases, speed = 70, delay = 2200 }) {
@@ -60,31 +63,123 @@ const TYPEWRITER_PHRASES = [
   'ready to showcase.'
 ];
 
-function LandingNavbar() {
+function LandingNavbar({ setAuthView }) {
+  const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  useMotionValueEvent(scrollY, 'change', (latest) => {
+    setScrolled(latest > 20);
+  });
+
+  const scrollToSection = (id) => {
+    setMobileMenuOpen(false);
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${
-      scrolled 
-        ? 'bg-white/90 backdrop-blur-md border-b border-[#E5E9F0] shadow-xs' 
-        : 'bg-transparent border-b border-transparent'
-    }`}>
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#6366F1] flex items-center justify-center shadow-md shadow-purple-500/15">
-            <Terminal className="w-4 h-4 text-white" />
+    <header className="fixed top-0 left-0 right-0 z-50 pointer-events-none p-3 sm:p-4 flex justify-center">
+      <motion.div 
+        layout
+        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+        className={`pointer-events-auto transition-colors duration-300 border ${
+          scrolled 
+            ? 'w-full max-w-5xl rounded-full bg-white/95 backdrop-blur-md border-[#E2E8F0] shadow-md py-2.5 px-5 sm:px-6' 
+            : 'w-full max-w-[1400px] rounded-full bg-transparent border-transparent shadow-none py-3 px-6 sm:px-10'
+        } flex items-center justify-between`}
+      >
+        
+        {/* Left: Brand Identity with Squircle Icon Badge */}
+        <div 
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="flex items-center gap-2.5 cursor-pointer group select-none shrink-0"
+        >
+          <div className="w-8 h-8 rounded-xl bg-[#1E293B] flex items-center justify-center text-white shadow-xs group-hover:bg-[#7C3AED] transition-colors">
+            <Activity className="w-4 h-4 text-white" />
           </div>
-          <span className="text-base font-bold tracking-tight text-[#111827]">CareerOS</span>
+          <span className="text-sm sm:text-base font-black tracking-tight text-[#111827]">
+            Career<span className="text-[#7C3AED]">OS</span>
+          </span>
         </div>
-      </div>
+
+        {/* Center: Navigation Links in Clean Uppercase Typography */}
+        <nav className="hidden md:flex items-center gap-8 text-[11px] font-extrabold uppercase tracking-widest text-[#64748B]">
+          <button 
+            onClick={() => scrollToSection('features')}
+            className="hover:text-[#1E293B] transition-colors cursor-pointer"
+          >
+            FEATURES
+          </button>
+          <button 
+            onClick={() => scrollToSection('methodology')}
+            className="hover:text-[#1E293B] transition-colors cursor-pointer"
+          >
+            METHODOLOGY
+          </button>
+          <button 
+            onClick={() => scrollToSection('about')}
+            className="hover:text-[#1E293B] transition-colors cursor-pointer"
+          >
+            ABOUT
+          </button>
+        </nav>
+
+        {/* Right: Action CTA Button */}
+        <div className="hidden sm:flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => setAuthView?.('signup')}
+            className="px-4 py-2 bg-[#1E293B] hover:bg-[#0F172A] text-white text-xs font-bold rounded-full transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+          >
+            <span>Get Started</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Mobile Hamburger Toggle */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="sm:hidden p-1.5 text-gray-700 hover:text-gray-900 rounded-lg"
+          aria-label="Toggle menu"
+        >
+          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+      </motion.div>
+
+      {/* Mobile Dropdown Drawer */}
+      {mobileMenuOpen && (
+        <div className="sm:hidden mt-2 max-w-5xl mx-auto rounded-2xl bg-white border border-[#E2E8F0] shadow-lg p-4 space-y-3 pointer-events-auto text-xs font-bold text-[#475569]">
+          <button 
+            onClick={() => scrollToSection('features')}
+            className="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-50 uppercase tracking-wider text-[11px]"
+          >
+            FEATURES
+          </button>
+          <button 
+            onClick={() => scrollToSection('methodology')}
+            className="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-50 uppercase tracking-wider text-[11px]"
+          >
+            METHODOLOGY
+          </button>
+          <button 
+            onClick={() => scrollToSection('about')}
+            className="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-50 uppercase tracking-wider text-[11px]"
+          >
+            ABOUT
+          </button>
+          <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+            <button
+              onClick={() => { setMobileMenuOpen(false); setAuthView?.('signup'); }}
+              className="w-full py-2.5 bg-[#1E293B] text-white font-bold rounded-full text-center flex items-center justify-center gap-1.5"
+            >
+              <span>Get Started</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
@@ -106,7 +201,7 @@ export default function Landing({ setAuthView }) {
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#111827] relative selection:bg-purple-100 selection:text-[#7C3AED] overflow-hidden flex flex-col justify-between">
       
-      <LandingNavbar />
+      <LandingNavbar setAuthView={setAuthView} />
 
       {/* Subtle Background Glows (contained & lightweight) */}
       <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-[radial-gradient(ellipse_at_center,rgba(124,58,237,0.04)_0%,transparent_70%)] rounded-full -z-10 pointer-events-none transform-gpu" />
@@ -158,10 +253,13 @@ export default function Landing({ setAuthView }) {
                   <ArrowRight className="w-4 h-4" />
                 </button>
                 <button 
-                  onClick={() => setAuthView('login')}
+                  onClick={() => {
+                    const el = document.getElementById('methodology') || document.getElementById('features');
+                    el?.scrollIntoView({ behavior: 'smooth' });
+                  }}
                   className="w-full sm:w-auto px-6 py-3.5 bg-white hover:bg-slate-50 text-[#374151] border border-[#E5E9F0] text-sm font-semibold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
                 >
-                  Sign In to Existing Account
+                  Learn More
                 </button>
               </motion.div>
 
@@ -174,7 +272,7 @@ export default function Landing({ setAuthView }) {
         </section>
 
         {/* 2. THE PROBLEM (WHY IT MATTERS) */}
-        <section className="py-16 md:py-20 border-t border-[#E5E9F0]/80 bg-white">
+        <section id="methodology" className="py-16 md:py-20 border-t border-[#E5E9F0]/80 bg-white scroll-mt-24">
           <div className="max-w-6xl mx-auto px-6">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
               
@@ -197,7 +295,7 @@ export default function Landing({ setAuthView }) {
                       <span className="text-xs font-bold text-[#7C3AED]">1</span>
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-[#111827]">Fragmented Evidence</h4>
+                      <h4 className="text-xs font-bold text-[#111827]">Fragmented Profiles</h4>
                       <p className="text-xs text-[#6B7280] mt-0.5">Recruiters rarely spend the time to navigate 5 separate URLs to assemble your skill story.</p>
                     </div>
                   </div>
@@ -311,7 +409,7 @@ export default function Landing({ setAuthView }) {
         </section>
 
         {/* 3. SUPPORTED SOURCES / PLATFORMS */}
-        <section className="py-16 md:py-20 border-t border-[#E5E9F0]/80">
+        <section id="features" className="py-16 md:py-20 border-t border-[#E5E9F0]/80 scroll-mt-24">
           <div className="max-w-6xl mx-auto px-6 space-y-12">
             
             <div className="text-center max-w-2xl mx-auto space-y-3">
@@ -483,7 +581,7 @@ export default function Landing({ setAuthView }) {
       </main>
 
       {/* 6. FOOTER */}
-      <footer className="w-full border-t border-[#E5E9F0] bg-white">
+      <footer id="about" className="w-full border-t border-[#E5E9F0] bg-white scroll-mt-24">
         <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-[#6B7280]">
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded-md bg-purple-100 flex items-center justify-center text-[#7C3AED]">

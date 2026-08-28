@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   Lock,
   RefreshCw,
   Sliders,
@@ -19,6 +19,11 @@ import {
   Calendar,
   Layers,
   Sparkles,
+  GraduationCap,
+  Briefcase,
+  MapPin,
+  BookOpen,
+  School,
 } from 'lucide-react';
 import { userService } from '../services/userService';
 import { githubService } from '../services/githubService';
@@ -27,6 +32,7 @@ import { leetcodeService } from '../services/leetcodeService';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import GithubRepoPickerModal from '../components/GithubRepoPickerModal';
+import EditProfileModal from '../components/EditProfileModal';
 
 export default function Settings() {
   const { userData, refreshUser } = useApp();
@@ -34,21 +40,9 @@ export default function Settings() {
 
   // Modal & Notice State
   const [showRepoPicker, setShowRepoPicker] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [notice, setNotice] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
-
-  // Profile Edit State
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileName, setProfileName] = useState(userData?.name || '');
-  const [profileBio, setProfileBio] = useState(userData?.bio || '');
-  const [profileLoading, setProfileLoading] = useState(false);
-
-  useEffect(() => {
-    if (userData) {
-      setProfileName(userData.name || '');
-      setProfileBio(userData.bio || '');
-    }
-  }, [userData]);
 
   // Check sessionStorage notice on mount
   useEffect(() => {
@@ -104,6 +98,17 @@ export default function Settings() {
     showToast?.('Notification preferences saved.', 'success');
   };
 
+  // Resolved Education List for Settings Display
+  const displayEducationList = useMemo(() => {
+    if (Array.isArray(userData?.educationList) && userData.educationList.length > 0) {
+      return userData.educationList;
+    }
+    if (userData?.education?.institution || userData?.education?.degree) {
+      return [userData.education];
+    }
+    return [];
+  }, [userData]);
+
   // Password State
   const [passLoading, setPassLoading] = useState(false);
   const [passMessage, setPassMessage] = useState(null);
@@ -124,26 +129,6 @@ export default function Settings() {
     window.addEventListener('message', handleAuthMessage);
     return () => window.removeEventListener('message', handleAuthMessage);
   }, [refreshUser, showToast]);
-
-  // Handle Profile Update
-  const handleSaveProfile = async (e) => {
-    e.preventDefault();
-    setProfileLoading(true);
-    try {
-      await userService.updateProfile({
-        name: profileName.trim(),
-        bio: profileBio.trim(),
-      });
-      await refreshUser?.();
-      setIsEditingProfile(false);
-      showToast?.('Profile updated successfully.', 'success');
-    } catch (err) {
-      console.error(err);
-      showToast?.(err.response?.data?.message || 'Failed to update profile.', 'error');
-    } finally {
-      setProfileLoading(false);
-    }
-  };
 
   // Handle GitHub OAuth
   const handleGithubOAuthAction = () => {
@@ -261,9 +246,9 @@ export default function Settings() {
       showToast?.('Password updated successfully.', 'success');
     } catch (err) {
       console.error(err);
-      setPassMessage({ 
-        type: 'error', 
-        text: err.response?.data?.message || err.response?.data?.error || 'Failed to update password.' 
+      setPassMessage({
+        type: 'error',
+        text: err.response?.data?.message || err.response?.data?.error || 'Failed to update password.'
       });
     } finally {
       setPassLoading(false);
@@ -349,13 +334,13 @@ export default function Settings() {
     }
   ];
 
-  const memberSince = userData?.createdAt 
+  const memberSince = userData?.createdAt
     ? new Date(userData.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     : 'Recent Member';
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-20 animate-fadeIn text-left">
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -405,25 +390,16 @@ export default function Settings() {
             </div>
           </div>
 
-          {!isEditingProfile ? (
-            <button
-              onClick={() => setIsEditingProfile(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#F9FAFB] hover:bg-[#F3F4F6] text-[#374151] border border-[#E5E9F0] transition-colors cursor-pointer"
-            >
-              <Edit2 className="w-3.5 h-3.5 text-[#6B7280]" />
-              <span>Edit Profile</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => setIsEditingProfile(false)}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-[#6B7280] hover:text-[#111827] cursor-pointer"
-            >
-              Cancel
-            </button>
-          )}
+          <button
+            onClick={() => setShowEditProfileModal(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#F9FAFB] hover:bg-[#F3F4F6] text-[#374151] border border-[#E5E9F0] transition-colors cursor-pointer"
+          >
+            <Edit2 className="w-3.5 h-3.5 text-[#6B7280]" />
+            <span>Edit Profile</span>
+          </button>
         </div>
 
-        {!isEditingProfile ? (
+        <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
               {userData?.avatar ? (
@@ -444,8 +420,14 @@ export default function Settings() {
                     {userData?.name || 'Developer'}
                   </h3>
                   <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider bg-purple-50 text-[#7C3AED] border border-purple-200">
-                    {userData?.role === 'admin' ? 'Admin' : 'Student Developer'}
+                    {userData?.professionalRole || (userData?.role === 'admin' ? 'Admin' : 'Student')}
                   </span>
+                  {userData?.experience && userData?.professionalRole !== 'Student' && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold bg-blue-50 text-[#2563EB] border border-blue-200">
+                      <Briefcase className="w-3 h-3" />
+                      {userData.experience}
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-[#6B7280]">
                   <span className="inline-flex items-center gap-1.5">
@@ -471,62 +453,85 @@ export default function Settings() {
               <span className="text-2xl font-black text-[#7C3AED]">{userData?.readinessScore || 0}%</span>
             </div>
           </div>
-        ) : (
-          <form onSubmit={handleSaveProfile} className="space-y-5 pt-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs font-bold text-[#374151]">
-              <div className="space-y-1.5">
-                <label>Full Name</label>
-                <input
-                  type="text"
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  placeholder="Your Name"
-                  className="w-full px-4 py-2.5 bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/15 focus:border-[#7C3AED]"
-                  required
-                />
-              </div>
 
-              <div className="space-y-1.5">
-                <label>Email Address</label>
-                <input
-                  type="email"
-                  disabled
-                  value={userData?.email || ''}
-                  className="w-full px-4 py-2.5 bg-[#F3F4F6] border border-[#E5E9F0] rounded-xl font-semibold text-[#9CA3AF] cursor-not-allowed"
-                />
+          {/* Educational & Academic Footprint */}
+          <div className="pt-4 border-t border-[#F3F4F6] space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="w-4 h-4 text-[#7C3AED]" />
+                <h3 className="text-xs font-bold text-[#111827] uppercase tracking-wider">Educational Qualifications</h3>
               </div>
-
-              <div className="sm:col-span-2 space-y-1.5">
-                <label>Developer Bio / Headline</label>
-                <input
-                  type="text"
-                  value={profileBio}
-                  onChange={(e) => setProfileBio(e.target.value)}
-                  placeholder="e.g. Full-Stack Engineer & Competitive Programmer"
-                  className="w-full px-4 py-2.5 bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/15 focus:border-[#7C3AED]"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2.5 pt-2">
               <button
-                type="button"
-                onClick={() => setIsEditingProfile(false)}
-                className="px-4 py-2 text-xs font-bold text-[#6B7280] hover:text-[#111827] cursor-pointer"
+                onClick={() => setIsEditModalOpen(true)}
+                className="text-xs font-bold text-[#7C3AED] hover:underline inline-flex items-center gap-1 cursor-pointer"
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={profileLoading}
-                className="px-5 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-              >
-                {profileLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                <span>Save Profile Changes</span>
+                <span>+ Add / Edit Education</span>
               </button>
             </div>
-          </form>
-        )}
+
+            {displayEducationList.length > 0 ? (
+              <div className="space-y-3">
+                {displayEducationList.map((edu, idx) => (
+                  <div key={idx} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs p-3.5 rounded-2xl bg-[#FAFBFC] border border-[#E5E9F0]">
+                    <div className="flex items-start gap-2.5">
+                      <div className="p-2 rounded-lg bg-purple-50 text-[#7C3AED] shrink-0">
+                        <School className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">Institution</span>
+                        <span className="font-bold text-[#111827] truncate block">{edu.institution || 'Not specified'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="p-2 rounded-lg bg-purple-50 text-[#7C3AED] shrink-0">
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">Degree & Course</span>
+                        <span className="font-bold text-[#111827] truncate block">
+                          {edu.degree || edu.course
+                            ? `${edu.degree || ''}${edu.degree && edu.course ? ' • ' : ''}${edu.course || ''}`
+                            : 'Not specified'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="p-2 rounded-lg bg-purple-50 text-[#7C3AED] shrink-0">
+                        <Calendar className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">Passing / Year</span>
+                        <span className="font-bold text-[#111827] truncate block">{edu.year || 'Not specified'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="p-2 rounded-lg bg-purple-50 text-[#7C3AED] shrink-0">
+                        <MapPin className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">Location</span>
+                        <span className="font-bold text-[#111827] truncate block">{edu.location || 'Not specified'}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 text-center bg-[#FAFBFC] border border-dashed border-[#E5E9F0] rounded-2xl">
+                <span className="text-xs text-gray-500 font-semibold">No educational qualifications added yet. </span>
+                <button
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="text-xs font-bold text-[#7C3AED] hover:underline cursor-pointer ml-1"
+                >
+                  Click here to add
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Section 2: Platform Integrations & External Sources (Spacious & Clean) */}
@@ -563,9 +568,8 @@ export default function Settings() {
               >
                 {/* Left: Platform Icon & Info */}
                 <div className="flex items-start gap-4 min-w-0 flex-1">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs ${
-                    plat.isConnected ? 'bg-[#111827] text-white' : 'bg-gray-100 text-gray-500'
-                  }`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs ${plat.isConnected ? 'bg-[#111827] text-white' : 'bg-gray-100 text-gray-500'
+                    }`}>
                     <Icon className="w-6 h-6" />
                   </div>
 
@@ -583,7 +587,7 @@ export default function Settings() {
                         </span>
                       )}
                     </div>
-                    
+
                     <p className="text-xs text-[#6B7280] font-semibold leading-relaxed">
                       {plat.desc}
                     </p>
@@ -716,46 +720,6 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Section 3: Notification Preferences */}
-      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
-        <div className="flex items-center gap-2.5 border-b border-[#F3F4F6] pb-5">
-          <div className="w-8 h-8 rounded-xl bg-purple-50 text-[#7C3AED] flex items-center justify-center">
-            <Bell className="w-4 h-4" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-[#111827]">
-              Notification Preferences & Alerts
-            </h2>
-            <p className="text-xs text-[#6B7280] font-semibold">Choose how and when CareerOS sends you updates</p>
-          </div>
-        </div>
-
-        <div className="divide-y divide-[#F3F4F6]">
-          {notificationOptions.map((opt) => {
-            const isActive = !!notifications[opt.key];
-            return (
-              <div key={opt.key} className="py-4 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
-                <div>
-                  <h3 className="text-xs sm:text-sm font-bold text-[#111827]">{opt.name}</h3>
-                  <p className="text-xs text-[#6B7280] font-semibold mt-0.5">{opt.desc}</p>
-                </div>
-
-                <button 
-                  onClick={() => toggleNotification(opt.key)}
-                  className={`w-10 h-6 rounded-full p-0.5 transition-colors cursor-pointer focus:outline-none shrink-0 ${
-                    isActive ? 'bg-[#7C3AED]' : 'bg-[#E5E9F0]'
-                  }`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full transition-transform shadow-xs ${
-                    isActive ? 'translate-x-4' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Section 4: Password & Security */}
       <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
         <div className="flex items-center gap-2.5 border-b border-[#F3F4F6] pb-5">
@@ -771,9 +735,8 @@ export default function Settings() {
         </div>
 
         {passMessage && (
-          <div className={`p-4 rounded-2xl text-xs font-bold border ${
-            passMessage.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-red-50 border-red-100 text-red-700'
-          }`}>
+          <div className={`p-4 rounded-2xl text-xs font-bold border ${passMessage.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-red-50 border-red-100 text-red-700'
+            }`}>
             {passMessage.text}
           </div>
         )}
@@ -782,8 +745,8 @@ export default function Settings() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 text-xs font-bold text-[#374151]">
             <div className="space-y-1.5">
               <label>Current Password</label>
-              <input 
-                type="password" 
+              <input
+                type="password"
                 value={passwordFields.oldPassword}
                 onChange={(e) => setPasswordFields({ ...passwordFields, oldPassword: e.target.value })}
                 placeholder="••••••••"
@@ -794,8 +757,8 @@ export default function Settings() {
 
             <div className="space-y-1.5">
               <label>New Password</label>
-              <input 
-                type="password" 
+              <input
+                type="password"
                 value={passwordFields.newPassword}
                 onChange={(e) => setPasswordFields({ ...passwordFields, newPassword: e.target.value })}
                 placeholder="••••••••"
@@ -806,8 +769,8 @@ export default function Settings() {
 
             <div className="space-y-1.5">
               <label>Confirm New Password</label>
-              <input 
-                type="password" 
+              <input
+                type="password"
                 value={passwordFields.confirmPassword}
                 onChange={(e) => setPasswordFields({ ...passwordFields, confirmPassword: e.target.value })}
                 placeholder="••••••••"
@@ -818,7 +781,7 @@ export default function Settings() {
           </div>
 
           <div className="flex justify-end pt-2">
-            <button 
+            <button
               type="submit"
               disabled={passLoading}
               className="px-5 py-2.5 bg-[#111827] hover:bg-[#1F2937] text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
@@ -839,26 +802,34 @@ export default function Settings() {
         }}
       />
 
+      {/* Edit Profile & Qualifications Modal */}
+      <EditProfileModal
+        open={showEditProfileModal}
+        onClose={() => setShowEditProfileModal(false)}
+        userData={userData}
+        onProfileUpdated={refreshUser}
+      />
+
       {/* Confirmation Dialog */}
       {confirmDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div 
+          <div
             className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
             onClick={() => setConfirmDialog(null)}
           />
-          
+
           <div className="relative bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-7 shadow-2xl max-w-sm w-full z-10 text-center space-y-4 animate-fadeIn">
             <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto">
               <AlertCircle className="w-6 h-6" />
             </div>
-            
+
             <div className="space-y-1.5">
               <h3 className="text-base font-bold text-[#111827]">{confirmDialog.title}</h3>
               <p className="text-xs text-[#6B7280] font-semibold leading-relaxed">
                 {confirmDialog.message}
               </p>
             </div>
-            
+
             <div className="flex gap-2.5 pt-2">
               <button
                 onClick={() => setConfirmDialog(null)}

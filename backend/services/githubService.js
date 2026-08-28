@@ -93,6 +93,15 @@ export async function fetchGitHubData(username, accessToken) {
 
     const stargazersTotal = repos.reduce((sum, r) => sum + (r.stargazers_count || 0), 0);
     const forksTotal = repos.reduce((sum, r) => sum + (r.forks_count || 0), 0);
+    const recentRepos = repos.slice(0, 6).map((r) => ({
+      name: r.name,
+      stars: r.stargazers_count || 0,
+      forks: r.forks_count || 0,
+      url: r.html_url,
+      language: r.language || 'Code',
+      description: r.description || '',
+      updatedAt: r.updated_at,
+    }));
 
     return {
       username: profile.login,
@@ -103,6 +112,7 @@ export async function fetchGitHubData(username, accessToken) {
       totalRepos: repos.length,
       topLanguages,
       recentPushEvents: pushEvents,
+      recentRepos,
       totalCommitsRecent,
       stargazersTotal,
       totalStars: stargazersTotal,

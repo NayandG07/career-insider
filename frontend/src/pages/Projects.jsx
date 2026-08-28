@@ -18,7 +18,7 @@ import {
   Lock,
   Layers,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { projectService } from '../services/projectService';
 import { githubService } from '../services/githubService';
 import { useApp } from '../context/AppContext';

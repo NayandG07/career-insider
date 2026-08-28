@@ -9,7 +9,6 @@ import {
   Terminal, 
   Layers,
   Award,
-  CheckCircle2,
   TrendingUp,
   AlertTriangle,
   FolderGit2,
@@ -25,7 +24,7 @@ import {
   ExternalLink,
   Target
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import ReadinessGate from '../components/ReadinessGate';
 
 export default function SkillIntelligence({ setActivePage }) {
@@ -68,22 +67,10 @@ export default function SkillIntelligence({ setActivePage }) {
   };
 
   // Readiness Gate Check
-  if (hasInitialized && readiness && !readiness.ready) {
-    return (
-      <ReadinessGate 
-        featureName="Skill Intelligence" 
-        readiness={readiness} 
-        setActivePage={setActivePage} 
-        description="Skill Intelligence needs more evidence to generate an accurate capability profile. Connect LeetCode, Codeforces, and add at least one project to verify your practical and problem-solving skills."
-      />
-    );
-  }
-
   const categories = skills?.categories || [];
   const skillItems = skills?.skills || [];
   const gapAnalysis = skills?.gapAnalysis || [];
   const sourceContributions = skills?.sourceContributions || {};
-  const previousSnapshots = skills?.previousSnapshots || [];
   const counts = sourceContributions?.counts || {
     leetcode: 0,
     codeforces: 0,
@@ -97,19 +84,6 @@ export default function SkillIntelligence({ setActivePage }) {
   const developingCount = skillItems.filter(s => s.level === 'Developing' || s.level === 'Intermediate').length;
   const emergingCount = skillItems.filter(s => s.level === 'Emerging' || s.level === 'Insufficient Evidence').length;
   const totalVerifiedCount = counts.total || skillItems.reduce((sum, s) => sum + (s.evidenceCount || 1), 0);
-
-  // Progress Delta Calculation
-  const progressDelta = useMemo(() => {
-    if (!previousSnapshots || previousSnapshots.length === 0) return null;
-    const lastSnapshot = previousSnapshots[previousSnapshots.length - 1];
-    const scoreDiff = (skills?.readinessScore || 50) - (lastSnapshot.readinessScore || 50);
-    const dateFormatted = lastSnapshot.computedAt ? new Date(lastSnapshot.computedAt).toLocaleDateString() : 'earlier';
-    return {
-      scoreDiff,
-      lastDate: dateFormatted,
-      isPositive: scoreDiff >= 0,
-    };
-  }, [previousSnapshots, skills]);
 
   // Filtered & Searched Skills
   const filteredSkills = useMemo(() => {
@@ -146,6 +120,18 @@ export default function SkillIntelligence({ setActivePage }) {
   // Visible items based on progressive disclosure
   const displayedSkills = isExpanded ? filteredSkills : filteredSkills.slice(0, 6);
 
+  // Readiness Gate Check
+  if (hasInitialized && readiness && !readiness.ready) {
+    return (
+      <ReadinessGate 
+        featureName="Skill Intelligence" 
+        readiness={readiness} 
+        setActivePage={setActivePage} 
+        description="Connect your LeetCode, Codeforces, and add at least one project to build your capability profile and analyze your technical skills."
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 pb-16 animate-fadeIn text-left">
       
@@ -156,9 +142,7 @@ export default function SkillIntelligence({ setActivePage }) {
             Skill Intelligence & Capabilities
           </h1>
           <p className="text-xs sm:text-sm text-[#4B5563] mt-1 font-semibold">
-            {skills?.lastComputedAt 
-              ? `Overview of your programming languages, problem solving, and technical skills • Last analyzed ${new Date(skills.lastComputedAt).toLocaleDateString()}` 
-              : 'Detailed breakdown of your technical skills, problem-solving, and project capabilities.'}
+            Detailed breakdown of your technical skills, problem-solving, and project capabilities.
           </p>
         </div>
 
@@ -183,33 +167,7 @@ export default function SkillIntelligence({ setActivePage }) {
         </div>
       )}
 
-      {/* 2. "Your Progress" Historical Delta Banner */}
-      {progressDelta && (
-        <motion.div 
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-r from-purple-50 via-indigo-50 to-emerald-50 border border-[#E5E9F0] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white border border-[#E5E9F0] flex items-center justify-center text-[#7C3AED] shadow-2xs shrink-0">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-[#111827]">Your Progress Since Last Snapshot</span>
-                <span className="text-[10px] text-[#6B7280] font-semibold">({progressDelta.lastDate})</span>
-              </div>
-              <p className="text-[11px] text-[#4B5563] font-semibold mt-0.5">
-                {progressDelta.isPositive ? '+' : ''}{progressDelta.scoreDiff} pts progression across your connected accounts.
-              </p>
-            </div>
-          </div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-[#E5E9F0] text-[#111827] text-xs font-bold rounded-xl shadow-2xs">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Profile Snapshot Saved</span>
-          </div>
-        </motion.div>
-      )}
+
 
       {/* 3. Summary KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

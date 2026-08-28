@@ -16,7 +16,7 @@ import {
   ArrowRight,
   Layers
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { githubService } from '../services/githubService';
 
 export default function GithubRepoPickerModal({ open, onClose, onSelectRepo, onBatchImport }) {

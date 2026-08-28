@@ -16,7 +16,7 @@ import {
   X,
   LogOut,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
 
 // Restored strictly from TEMP navigation items

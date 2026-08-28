@@ -11,6 +11,11 @@ export const userService = {
     return res.data;
   },
 
+  updateProfile: async (data) => {
+    const res = await api.put('/users/me', data);
+    return res.data;
+  },
+
   changePassword: async (data) => {
     const res = await api.post('/users/change-password', data);
     return res.data;

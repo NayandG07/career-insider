@@ -66,10 +66,14 @@ export const AppProvider = ({ children }) => {
       setTelemetry(telRes);
       setProjects(projRes || []);
     } catch (err) {
-      console.error('Failed to load initial user data', err);
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      setIsAuthenticated(false);
+      console.warn('Initial user data fetch issue:', err?.message || err);
+      // Only log out if the server explicitly responded with 401/403 (unauthorized token).
+      // Do NOT log out on temporary network connection failures or Nodemon server restarts!
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        setIsAuthenticated(false);
+      }
     } finally {
       setIsLoading(false);
     }
