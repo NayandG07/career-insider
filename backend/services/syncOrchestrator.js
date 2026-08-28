@@ -78,27 +78,19 @@ export async function syncUserSources(user) {
 }
 
 /**
- * Start the cron job that syncs all users every 6 hours.
+ * Run sync for all users.
+ * This is triggered by the external cron webhook.
  */
-export function startSyncCron() {
-  // Run every 6 hours: at minute 0, every 6th hour
-  cron.schedule('0 */6 * * *', async () => {
-    logger.info('CRON', 'Starting scheduled telemetry sync sweep for all users...');
+export async function runAllSyncs() {
+  logger.info('CRON', 'Starting webhook telemetry sync sweep for all users...');
+  const users = await User.find({});
+  for (const user of users) {
     try {
-      const users = await User.find({});
-      for (const user of users) {
-        try {
-          const results = await syncUserSources(user);
-          logger.success('CRON', `Synced telemetry for user ${user.email || user._id}`, results);
-        } catch (err) {
-          logger.error('CRON', `Sync failed for user ${user.email || user._id}`, err);
-        }
-      }
-      logger.success('CRON', 'Scheduled telemetry sync sweep completed.');
+      const results = await syncUserSources(user);
+      logger.success('CRON', `Synced telemetry for user ${user.email || user._id}`, results);
     } catch (err) {
-      logger.error('CRON', 'Fatal sync orchestrator error', err);
+      logger.error('CRON', `Sync failed for user ${user.email || user._id}`, err);
     }
-  });
-
-  logger.info('CRON', 'Background sync scheduler initialized (sweep interval: every 6h)');
+  }
+  logger.success('CRON', 'Webhook telemetry sync sweep completed.');
 }

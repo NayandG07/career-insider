@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Terminal, ArrowRight, ArrowLeft, Mail, Lock, User, Github, Sparkles, Shield, Share2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { getApiBaseUrl } from '../services/api';
 
 export default function Login({ view, setAuthView }) {
   const { login, register } = useApp();
@@ -306,12 +307,14 @@ export default function Login({ view, setAuthView }) {
           </div>
 
           <div className="mt-6 space-y-3">
-            {/* Google OAuth — use Vite proxy path, not hardcoded localhost */}
+            {/* Google OAuth */}
             <motion.button
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
               type="button"
-              onClick={() => window.location.href = '/api/auth/google'}
+              onClick={() => {
+                window.location.href = `${getApiBaseUrl()}/auth/google`;
+              }}
               className="w-full py-3 bg-white hover:bg-[#F9FAFB] border border-[#E5E9F0] text-[#374151] text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2.5 cursor-pointer"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -323,12 +326,14 @@ export default function Login({ view, setAuthView }) {
               Continue with Google
             </motion.button>
 
-            {/* GitHub OAuth — use Vite proxy path */}
+            {/* GitHub OAuth */}
             <motion.button
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
               type="button"
-              onClick={() => window.location.href = '/api/auth/github'}
+              onClick={() => {
+                window.location.href = `${getApiBaseUrl()}/auth/github`;
+              }}
               className="w-full py-3 bg-white hover:bg-[#F9FAFB] border border-[#E5E9F0] text-[#374151] text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2.5 cursor-pointer"
             >
               <Github className="w-4 h-4" />

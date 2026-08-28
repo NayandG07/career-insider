@@ -5,7 +5,6 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-Python_3.10+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)](LICENSE)
 
 **CareerOS** is an AI-powered Career Intelligence Platform designed to help students, developers, and early-career professionals understand where they stand in their career journey, identify skill gaps, receive personalized growth recommendations, and measure progress toward specific career goals.
 
@@ -146,4 +145,5 @@ Quick reference for setting up `.env` files in each service directory:
 
 ## 📄 License
 
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+This project is **Proprietary and Closed Source**.
+You may not use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the software without explicit written permission from the creators.

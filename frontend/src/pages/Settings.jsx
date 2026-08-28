@@ -31,6 +31,7 @@ import { codeforcesService } from '../services/codeforcesService';
 import { leetcodeService } from '../services/leetcodeService';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { getApiBaseUrl } from '../services/api';
 import GithubRepoPickerModal from '../components/GithubRepoPickerModal';
 import EditProfileModal from '../components/EditProfileModal';
 
@@ -132,9 +133,8 @@ export default function Settings() {
 
   // Handle GitHub OAuth
   const handleGithubOAuthAction = () => {
-    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
     const token = localStorage.getItem('accessToken');
-    const url = `${backendUrl}/api/auth/github${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    const url = `${getApiBaseUrl()}/auth/github${token ? `?token=${encodeURIComponent(token)}` : ''}`;
     window.open(url, '_blank');
   };
 

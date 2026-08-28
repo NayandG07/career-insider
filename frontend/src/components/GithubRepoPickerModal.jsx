@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { githubService } from '../services/githubService';
+import { getApiBaseUrl } from '../services/api';
 
 export default function GithubRepoPickerModal({ open, onClose, onSelectRepo, onBatchImport }) {
   const [loading, setLoading] = useState(true);
@@ -132,9 +133,8 @@ export default function GithubRepoPickerModal({ open, onClose, onSelectRepo, onB
   };
 
   const handleConnectGithub = () => {
-    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
     const token = localStorage.getItem('accessToken');
-    const url = `${backendUrl}/api/auth/github${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    const url = `${getApiBaseUrl()}/auth/github${token ? `?token=${encodeURIComponent(token)}` : ''}`;
     
     window.open(url, '_blank');
 

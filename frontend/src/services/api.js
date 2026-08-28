@@ -1,7 +1,14 @@
 import axios from 'axios';
 
+export const getApiBaseUrl = () => {
+  const rawUrl = import.meta.env.VITE_API_URL || '';
+  if (!rawUrl) return '/api';
+  const cleanUrl = rawUrl.replace(/\/+$/, '');
+  return cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`;
+};
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: getApiBaseUrl(),
 });
 
 // Request interceptor: attach token
@@ -35,7 +42,7 @@ api.interceptors.response.use(
       if (refreshToken) {
         try {
           // Attempt refresh
-          const res = await axios.post('/api/auth/refresh-token', { refreshToken });
+          const res = await axios.post(`${getApiBaseUrl()}/auth/refresh-token`, { refreshToken });
           localStorage.setItem('accessToken', res.data.accessToken);
           localStorage.setItem('refreshToken', res.data.refreshToken);
 
