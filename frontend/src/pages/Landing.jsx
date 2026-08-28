@@ -111,13 +111,13 @@ function LandingNavbar({ setAuthView }) {
             onClick={() => scrollToSection('features')}
             className="hover:text-[#1E293B] transition-colors cursor-pointer"
           >
-            FEATURES
+            SOURCES
           </button>
           <button 
             onClick={() => scrollToSection('methodology')}
             className="hover:text-[#1E293B] transition-colors cursor-pointer"
           >
-            METHODOLOGY
+            HOW IT WORKS
           </button>
           <button 
             onClick={() => scrollToSection('about')}
@@ -155,13 +155,13 @@ function LandingNavbar({ setAuthView }) {
             onClick={() => scrollToSection('features')}
             className="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-50 uppercase tracking-wider text-[11px]"
           >
-            FEATURES
+            SOURCES
           </button>
           <button 
             onClick={() => scrollToSection('methodology')}
             className="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-50 uppercase tracking-wider text-[11px]"
           >
-            METHODOLOGY
+            HOW IT WORKS
           </button>
           <button 
             onClick={() => scrollToSection('about')}
@@ -217,7 +217,7 @@ export default function Landing({ setAuthView }) {
             variants={containerVariants}
             className="max-w-6xl mx-auto px-6 text-center my-auto w-full"
           >
-            <div className="max-w-3xl mx-auto space-y-6">
+            <div className="max-w-4xl mx-auto space-y-6">
               
               <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#E5E9F0] shadow-xs">
                 <span className="w-2 h-2 rounded-full bg-[#7C3AED]" />
@@ -226,9 +226,9 @@ export default function Landing({ setAuthView }) {
 
               <motion.h1 
                 variants={itemVariants}
-                className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.15] text-[#111827]"
+                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.15] text-[#111827]"
               >
-                Your entire engineering identity <br />
+                <span className="inline-block sm:whitespace-nowrap">Your entire engineering identity</span> <br />
                 <span className="block text-[#7C3AED] min-h-[1.25em] mt-1 sm:mt-2">
                   <Typewriter phrases={TYPEWRITER_PHRASES} />
                 </span>
@@ -272,7 +272,7 @@ export default function Landing({ setAuthView }) {
         </section>
 
         {/* 2. THE PROBLEM (WHY IT MATTERS) */}
-        <section id="methodology" className="py-16 md:py-20 border-t border-[#E5E9F0]/80 bg-white scroll-mt-24">
+        <section id="methodology" className="py-16 md:py-24 border-t border-[#E5E9F0]/80 bg-white scroll-mt-24">
           <div className="max-w-6xl mx-auto px-6">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
               
@@ -409,7 +409,7 @@ export default function Landing({ setAuthView }) {
         </section>
 
         {/* 3. SUPPORTED SOURCES / PLATFORMS */}
-        <section id="features" className="py-16 md:py-20 border-t border-[#E5E9F0]/80 scroll-mt-24">
+        <section id="features" className="py-16 md:py-24 border-t border-[#E5E9F0]/80 scroll-mt-24">
           <div className="max-w-6xl mx-auto px-6 space-y-12">
             
             <div className="text-center max-w-2xl mx-auto space-y-3">
@@ -496,7 +496,7 @@ export default function Landing({ setAuthView }) {
         </section>
 
         {/* 4. HOW IT WORKS (SIMPLE 3-STEP PIPELINE) */}
-        <section className="py-16 md:py-20 border-t border-[#E5E9F0]/80 bg-white">
+        <section className="py-16 md:py-24 border-t border-[#E5E9F0]/80 bg-white">
           <div className="max-w-6xl mx-auto px-6 space-y-12">
             
             <div className="text-center max-w-2xl mx-auto space-y-3">
@@ -549,7 +549,7 @@ export default function Landing({ setAuthView }) {
         </section>
 
         {/* 5. CALL TO ACTION */}
-        <section className="py-16 md:py-20 border-t border-[#E5E9F0]/80">
+        <section className="py-16 md:py-24 border-t border-[#E5E9F0]/80">
           <div className="max-w-6xl mx-auto px-6">
             <div className="bg-[#7C3AED] text-white rounded-3xl p-8 sm:p-12 text-center shadow-lg relative overflow-hidden">
               <div className="max-w-xl mx-auto space-y-5 relative z-10">
