@@ -1,0 +1,10 @@
+[build]
+  base = "frontend"
+  publish = "dist"
+  command = "npm run build"
+
+# This ensures React Router works correctly on Netlify (prevents 404s on refresh)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

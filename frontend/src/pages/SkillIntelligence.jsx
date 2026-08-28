@@ -67,17 +67,6 @@ export default function SkillIntelligence({ setActivePage }) {
     }
   };
 
-  // Readiness Gate Check
-  if (hasInitialized && readiness && !readiness.ready) {
-    return (
-      <ReadinessGate 
-        featureName="Skill Intelligence" 
-        readiness={readiness} 
-        setActivePage={setActivePage} 
-        description="Skill Intelligence needs more evidence to generate an accurate capability profile. Connect LeetCode, Codeforces, and add at least one project to verify your practical and problem-solving skills."
-      />
-    );
-  }
 
   const categories = skills?.categories || [];
   const skillItems = skills?.skills || [];
@@ -145,6 +134,18 @@ export default function SkillIntelligence({ setActivePage }) {
 
   // Visible items based on progressive disclosure
   const displayedSkills = isExpanded ? filteredSkills : filteredSkills.slice(0, 6);
+
+  // Readiness Gate Check
+  if (hasInitialized && readiness && !readiness.ready) {
+    return (
+      <ReadinessGate 
+        featureName="Skill Intelligence" 
+        readiness={readiness} 
+        setActivePage={setActivePage} 
+        description="Skill Intelligence needs more evidence to generate an accurate capability profile. Connect LeetCode, Codeforces, and add at least one project to verify your practical and problem-solving skills."
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 pb-16 animate-fadeIn text-left">

@@ -4,7 +4,6 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import passport from './config/passport.js';
 import connectDB from './config/db.js';
-import { startSyncCron } from './services/syncOrchestrator.js';
 import logger from './utils/logger.js';
 
 // Route imports
@@ -13,6 +12,7 @@ import userRoutes from './routes/userRoutes.js';
 import telemetryRoutes from './routes/telemetryRoutes.js';
 import resumeRoutes from './routes/resumeRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
+import cronRoutes from './routes/cronRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import projectRoutes from './routes/projectRoutes.js';
 import githubRoutes from './routes/githubRoutes.js';
@@ -48,6 +48,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/github', githubRoutes);
 app.use('/api/codeforces', codeforcesRoutes);
 app.use('/api/leetcode', leetcodeRoutes);
+app.use('/api/cron', cronRoutes);
 
 
 // ─── Health Check ─────────────────────────────────────────
@@ -120,9 +121,6 @@ const startServer = async () => {
     ]);
     console.log('📦 Default AI configurations seeded.');
   }
-
-  // Start the sync cron job
-  startSyncCron();
 
   app.listen(PORT, () => {
     logger.success('SERVER', `CareerOS API Gateway online and ready on port ${PORT}`);

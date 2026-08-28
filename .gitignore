@@ -42,6 +42,7 @@ ai_service/venv/
 *.bat
 *.cmd
 *.sh
+!start.sh
 plan.md
 TASK_LIST.md
 IMPLEMENTATION_PLAN.md
