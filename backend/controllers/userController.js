@@ -8,12 +8,26 @@ import bcrypt from 'bcrypt';
 export const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
+    const resolvedEducationList = Array.isArray(user.educationList) && user.educationList.length > 0 
+      ? user.educationList 
+      : (user.education?.institution ? [user.education] : []);
+
     res.json({
       id: user._id,
       name: user.name,
       email: user.email,
       avatar: user.avatar,
       role: user.role,
+      professionalRole: user.professionalRole || 'Student',
+      experience: user.experience || '',
+      education: user.education || {
+        institution: '',
+        year: '',
+        degree: '',
+        course: '',
+        location: '',
+      },
+      educationList: resolvedEducationList,
       connectedSources: user.connectedSources,
       readinessScore: user.readinessScore,
       lastSyncedAt: user.lastSyncedAt,
@@ -30,11 +44,22 @@ export const getMe = async (req, res) => {
 
 /**
  * PUT /api/users/me
- * Update the current user's profile (name, connected source handles).
+ * Update the current user's profile (name, connected source handles, role, education, etc.).
  */
 export const updateMe = async (req, res) => {
   try {
-    const allowedFields = ['name', 'avatar', 'connectedSources', 'bio', 'socialLinks', 'careerDirections'];
+    const allowedFields = [
+      'name',
+      'avatar',
+      'connectedSources',
+      'bio',
+      'professionalRole',
+      'experience',
+      'education',
+      'educationList',
+      'socialLinks',
+      'careerDirections',
+    ];
     const updates = {};
 
     for (const field of allowedFields) {
@@ -43,10 +68,18 @@ export const updateMe = async (req, res) => {
       }
     }
 
+    if (Array.isArray(req.body.educationList) && req.body.educationList.length > 0) {
+      updates.education = req.body.educationList[0];
+    }
+
     const user = await User.findByIdAndUpdate(req.user._id, updates, {
       new: true,
       runValidators: true,
     });
+
+    const resolvedEducationList = Array.isArray(user.educationList) && user.educationList.length > 0 
+      ? user.educationList 
+      : (user.education?.institution ? [user.education] : []);
 
     res.json({
       id: user._id,
@@ -54,6 +87,16 @@ export const updateMe = async (req, res) => {
       email: user.email,
       avatar: user.avatar,
       role: user.role,
+      professionalRole: user.professionalRole || 'Student',
+      experience: user.experience || '',
+      education: user.education || {
+        institution: '',
+        year: '',
+        degree: '',
+        course: '',
+        location: '',
+      },
+      educationList: resolvedEducationList,
       connectedSources: user.connectedSources,
       readinessScore: user.readinessScore,
       lastSyncedAt: user.lastSyncedAt,

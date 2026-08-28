@@ -6,7 +6,7 @@ import {
   Search,
   BookOpen
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 export default function AdminSkills() {
   const [skills, setSkills] = useState([

@@ -21,7 +21,7 @@ import {
   Navigation,
   Check
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   ResponsiveContainer,
   RadarChart,
@@ -295,18 +295,7 @@ export default function Roadmap() {
         </div>
       </div>
 
-      {/* Reroute / Recalculating Overlay */}
-      {isRerouting && (
-        <div className="absolute inset-0 bg-[#F6F8FC]/50 backdrop-blur-sm z-30 flex flex-col items-center justify-center rounded-3xl min-h-[400px]">
-          <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xl text-center space-y-3 max-w-xs">
-            <Compass className="w-10 h-10 text-[#6366F1] animate-spin-slow mx-auto" />
-            <h3 className="font-bold text-[#111827] text-sm">Recalculating GPS Path...</h3>
-            <p className="text-[11px] text-[#6B7280] font-semibold leading-relaxed">
-              Consolidating skill targets and plotting trajectory vectors.
-            </p>
-          </div>
-        </div>
-      )}
+
 
       {/* ORGANISED TARGET PATH SELECTOR FILTERS */}
       <div className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-sm space-y-4">

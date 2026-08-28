@@ -24,7 +24,7 @@ import AdminSkills from './pages/AdminSkills';
 import AdminActivity from './pages/AdminActivity';
 import AdminSettings from './pages/AdminSettings';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { ShieldOff } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
 import { ToastProvider } from './context/ToastContext';
@@ -67,25 +67,34 @@ function getInitialAuthView() {
 }
 
 function getInitialActivePage(isAdmin) {
-  const hash = (window.location.hash || '').replace('#', '').replace('/', '');
+  const hashRaw = (window.location.hash || '').replace('#', '');
+  const basePage = hashRaw.split('/')[0] || '';
   const search = window.location.search || '';
   
-  if (search.includes('github') || hash.includes('settings') || hash === 'settings') {
+  if (search.includes('github')) {
     return 'settings';
   }
-  if (hash.includes('projects') || hash === 'projects') {
-    return 'projects';
+
+  const VALID_PAGES = [
+    'dashboard',
+    'roadmap',
+    'skills',
+    'companies',
+    'projects',
+    'ai-mentor',
+    'reports',
+    'settings',
+    'admin'
+  ];
+
+  if (VALID_PAGES.includes(basePage)) {
+    if (basePage === 'admin' && !isAdmin) {
+      return 'dashboard';
+    }
+    return basePage;
   }
-  if (hash.includes('companies') || hash === 'companies') {
-    return 'companies';
-  }
-  if (hash.includes('reports') || hash === 'reports') {
-    return 'reports';
-  }
-  if (hash.includes('profile') || hash === 'profile') {
-    return 'profile';
-  }
-  if (hash.includes('admin') || hash === 'admin' || isAdmin) {
+
+  if (isAdmin) {
     return 'admin';
   }
   return 'dashboard';
@@ -101,7 +110,10 @@ function MainAppContent() {
 
   useEffect(() => {
     if (activePage) {
-      window.location.hash = `#${activePage}`;
+      const currentHash = window.location.hash || '';
+      if (!currentHash.startsWith(`#${activePage}`)) {
+        window.location.hash = `#${activePage}`;
+      }
     }
   }, [activePage]);
 

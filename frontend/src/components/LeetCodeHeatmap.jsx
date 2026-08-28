@@ -1,18 +1,32 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 
 /**
- * Dynamic LeetCode Activity Heatmap
+ * Dynamic LeetCode & GitHub Activity Heatmap
  * Renders a 52-week contribution grid using real timestamp data from submissionCalendar.
- *
- * @param {object|string} props.submissionCalendar - Map or JSON string of { [timestampSeconds]: count }
- * @param {number} props.totalPastYearSubmissions - Sum of submissions in past year
- * @param {number} props.totalActiveDays - Number of days with >0 submissions
  */
 export default function LeetCodeHeatmap({ 
   submissionCalendar = {}, 
   totalPastYearSubmissions = 0, 
-  totalActiveDays = 0 
+  totalActiveDays = 0,
+  unitName = 'submissions',
+  timeRangeText = `in ${new Date().getFullYear()}`,
+  sideContent = null,
+  leftContent = null
 }) {
+  const rightContent = sideContent || leftContent;
+  const containerRef = useRef(null);
+
+  // Automatically scroll container to the rightmost position on mount and data change
+  useEffect(() => {
+    const scrollToRight = () => {
+      if (containerRef.current) {
+        containerRef.current.scrollLeft = containerRef.current.scrollWidth;
+      }
+    };
+    scrollToRight();
+    const timer = setTimeout(scrollToRight, 50);
+    return () => clearTimeout(timer);
+  }, [submissionCalendar]);
   // Normalize timestamp map into date string map (YYYY-MM-DD -> count)
   const calendarData = useMemo(() => {
     let raw = submissionCalendar;
@@ -36,6 +50,9 @@ export default function LeetCodeHeatmap({
         const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
         const dd = String(d.getUTCDate()).padStart(2, '0');
         const key = `${yyyy}-${mm}-${dd}`;
+        map[key] = (map[key] || 0) + Number(count);
+      } else if (typeof ts === 'string' && /^\d{4}-\d{2}-\d{2}/.test(ts)) {
+        const key = ts.slice(0, 10);
         map[key] = (map[key] || 0) + Number(count);
       }
     }
@@ -100,7 +117,11 @@ export default function LeetCodeHeatmap({
       const dateKey = `${yyyy}-${mm}-${dd}`;
       const count = calendarData[dateKey] || 0;
 
-      if (count > 0) {
+      const checkDate = new Date(cur);
+      checkDate.setHours(0, 0, 0, 0);
+      const isFuture = checkDate > today;
+
+      if (count > 0 && !isFuture) {
         tempStreak++;
         if (tempStreak > maxStreak) maxStreak = tempStreak;
       } else {
@@ -111,6 +132,7 @@ export default function LeetCodeHeatmap({
         date: dateKey,
         count,
         displayDate: cur.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        isFuture,
       });
 
       if (currentWeek.length === 7) {
@@ -157,9 +179,9 @@ export default function LeetCodeHeatmap({
         <div>
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-[#111827]">
-              {totalSubmissions.toLocaleString()} submissions
+              {totalSubmissions.toLocaleString()} {unitName}
             </span>
-            <span className="text-xs text-[#6B7280] font-semibold">in the past one year</span>
+            <span className="text-xs text-[#6B7280] font-semibold">{timeRangeText}</span>
           </div>
         </div>
 
@@ -182,60 +204,80 @@ export default function LeetCodeHeatmap({
       </div>
 
       {/* Heatmap Grid Container */}
-      <div className="overflow-x-auto pb-1">
-        <div className="min-w-[680px]">
-          
-          {/* Month Header Axis */}
-          <div className="flex text-[10px] font-bold text-[#9CA3AF] mb-1.5 pl-6 h-4 relative">
-            {monthLabels.map((m, idx) => (
-              <span
-                key={idx}
-                className="absolute"
-                style={{ left: `${(m.weekIndex / 52) * 100}%` }}
-              >
-                {m.label}
-              </span>
-            ))}
-          </div>
-
-          {/* Grid Layout */}
-          <div className="flex gap-1.5 items-start">
-            {/* Days labels */}
-            <div className="flex flex-col justify-between text-[9px] font-bold text-[#9CA3AF] h-[84px] pr-1 select-none">
-              <span>Mon</span>
-              <span>Wed</span>
-              <span>Fri</span>
-            </div>
-
-            {/* 52 Week Columns */}
-            <div className="flex gap-[3px] flex-1">
-              {weeks.map((week, wIdx) => (
-                <div key={wIdx} className="flex flex-col gap-[3px]">
-                  {week.map((day, dIdx) => (
-                    <div
-                      key={dIdx}
-                      title={`${day.count} submission${day.count === 1 ? '' : 's'} on ${day.displayDate}`}
-                      className={`w-[11px] h-[11px] rounded-[2px] border ${getCellColor(day.count)} transition-all hover:scale-125 hover:z-10 cursor-pointer`}
-                    />
-                  ))}
-                </div>
+      <div ref={containerRef} className="overflow-x-auto pb-1 no-scrollbar">
+        <div className="min-w-[760px] flex flex-col lg:flex-row items-start lg:items-end justify-between gap-6">
+          {/* Heatmap Grid on Left */}
+          <div className="w-[760px] shrink-0">
+            
+            {/* Month Header Axis */}
+            <div className="w-[725px] text-[10px] font-bold text-[#9CA3AF] mb-1.5 h-4 relative ml-[28px]">
+              {monthLabels.map((m, idx) => (
+                <span
+                  key={idx}
+                  className="absolute"
+                  style={{ left: `${(m.weekIndex / 52) * 100}%` }}
+                >
+                  {m.label}
+                </span>
               ))}
             </div>
-          </div>
 
-          {/* Footer Legend */}
-          <div className="flex items-center justify-between mt-3 text-[10px] font-semibold text-[#9CA3AF] pt-2 border-t border-[#F3F4F6]">
-            <span>Activity distribution</span>
-            <div className="flex items-center gap-1.5">
-              <span>Less</span>
-              <div className="w-2.5 h-2.5 rounded-[2px] bg-[#F3F4F6] border border-[#E5E9F0]" />
-              <div className="w-2.5 h-2.5 rounded-[2px] bg-emerald-200 border border-emerald-300" />
-              <div className="w-2.5 h-2.5 rounded-[2px] bg-emerald-400 border border-emerald-500" />
-              <div className="w-2.5 h-2.5 rounded-[2px] bg-emerald-600 border border-emerald-700" />
-              <span>More</span>
+            {/* Grid Layout */}
+            <div className="flex gap-1.5 items-start">
+              {/* Days labels */}
+              <div className="w-[22px] flex flex-col justify-between text-[9px] font-bold text-[#9CA3AF] h-[84px] pr-1 select-none">
+                <span>Mon</span>
+                <span>Wed</span>
+                <span>Fri</span>
+              </div>
+
+              {/* 52 Week Columns */}
+              <div className="flex gap-[3px] w-[725px]">
+                {weeks.map((week, wIdx) => (
+                  <div key={wIdx} className="flex flex-col gap-[3px]">
+                    {week.map((day, dIdx) => {
+                      if (day.isFuture) {
+                        return (
+                          <div
+                            key={dIdx}
+                            className="w-[11px] h-[11px] opacity-0 pointer-events-none"
+                          />
+                        );
+                      }
+                      return (
+                        <div
+                          key={dIdx}
+                          title={`${day.count} submission${day.count === 1 ? '' : 's'} on ${day.displayDate}`}
+                          className={`w-[11px] h-[11px] rounded-[2px] border ${getCellColor(day.count)} transition-all hover:scale-125 hover:z-10 cursor-pointer`}
+                        />
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
             </div>
+
+            {/* Footer Legend */}
+            <div className="flex items-center justify-between mt-3 text-[10px] font-semibold text-[#9CA3AF] pt-2 border-t border-[#F3F4F6]">
+              <span>Activity distribution</span>
+              <div className="flex items-center gap-1.5">
+                <span>Less</span>
+                <div className="w-2.5 h-2.5 rounded-[2px] bg-[#F3F4F6] border border-[#E5E9F0]" />
+                <div className="w-2.5 h-2.5 rounded-[2px] bg-emerald-200 border border-emerald-300" />
+                <div className="w-2.5 h-2.5 rounded-[2px] bg-emerald-400 border border-emerald-500" />
+                <div className="w-2.5 h-2.5 rounded-[2px] bg-emerald-600 border border-emerald-700" />
+                <span>More</span>
+              </div>
+            </div>
+
           </div>
 
+          {/* Rightmost Side Content Panel */}
+          {rightContent ? (
+            <div className="flex-1 min-w-[220px] w-full self-stretch flex flex-col justify-between py-1 border-l border-[#F3F4F6] pl-5">
+              {rightContent}
+            </div>
+          ) : null}
         </div>
       </div>
 

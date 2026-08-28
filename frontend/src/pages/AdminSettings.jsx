@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { adminService } from '../services/adminService';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Key, Plus, Trash2, RefreshCw, Cpu, Save, Edit2, Check, X,
   Eye, EyeOff, Shield, AlertTriangle, ChevronDown, Activity, Zap,

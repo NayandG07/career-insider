@@ -10,7 +10,7 @@ import {
   DollarSign,
   Loader2,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 const DEFAULT_COMPANIES = [
   {
@@ -131,17 +131,7 @@ export default function CompanyMatches() {
   return (
     <div className="space-y-6 pb-12 text-left animate-fadeIn">
       
-      {/* Title Row */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-[28px] font-bold text-[#111827] tracking-tight leading-tight">
-            Smart Compatibility Matcher
-          </h1>
-          <p className="text-sm text-[#4B5563] mt-1 font-semibold">
-            CareerOS AI matches your credentials with real-time roles.
-          </p>
-        </div>
-      </div>
+
 
       {/* Filter / Search Bar */}
       <div className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">

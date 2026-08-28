@@ -8,7 +8,7 @@ import {
   Globe, 
   Code 
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({

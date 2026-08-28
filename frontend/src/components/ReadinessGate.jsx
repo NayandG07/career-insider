@@ -8,13 +8,15 @@ import {
   FolderGit2, 
   ArrowRight,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  Compass,
+  Layers
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 export default function ReadinessGate({ 
   featureName = 'Career Roadmap',
-  description = 'CareerOS requires verified evidence from your core developer footprints to generate personalized analysis without fabricating metrics.',
+  description = 'CareerOS connects directly to your developer profiles to generate a personalized analysis and roadmap.',
   readiness = {},
   setActivePage,
 }) {
@@ -56,20 +58,27 @@ export default function ReadinessGate({
   const metCount = requirements.filter(r => r.met).length;
   const progressPercent = Math.round((metCount / requirements.length) * 100);
 
+  const DynamicDecorationIcon = featureName === 'Skill Intelligence' ? Layers : Compass;
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn text-left py-4">
+    <div className="w-full space-y-6 animate-fadeIn text-left py-4">
       {/* Hero Header Card */}
       <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-8 shadow-xs relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-purple-500/5 to-transparent rounded-full -mr-20 -mt-20 pointer-events-none" />
         
-        <div className="max-w-2xl space-y-4">
+        {/* Large Decorative Page Icon (Right side background decoration) */}
+        <div className="absolute right-6 top-6 sm:right-8 sm:top-8 text-[#7C3AED]/[0.07] pointer-events-none hidden sm:block">
+          <DynamicDecorationIcon className="w-20 h-20 stroke-[1.25]" />
+        </div>
+        
+        <div className="space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 border border-purple-200/60 text-[#7C3AED] text-xs font-bold shadow-2xs">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Source-Truth & Readiness Enforcement</span>
+            <span>Account Setup & Verification</span>
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-black text-[#111827] tracking-tight">
-            {featureName} Needs More Evidence
+            Connect Your Accounts to Unlock {featureName}
           </h2>
 
           <p className="text-sm text-[#4B5563] font-medium leading-relaxed">
@@ -79,8 +88,8 @@ export default function ReadinessGate({
           {/* Progress Indicator */}
           <div className="pt-2 space-y-2">
             <div className="flex items-center justify-between text-xs font-bold text-[#374151]">
-              <span>Readiness Progress</span>
-              <span className="text-[#7C3AED]">{metCount} of {requirements.length} Requirements Met ({progressPercent}%)</span>
+              <span>Setup Progress</span>
+              <span className="text-[#7C3AED]">{metCount} of {requirements.length} Steps Completed ({progressPercent}%)</span>
             </div>
             <div className="w-full bg-[#F3F4F6] h-2.5 rounded-full overflow-hidden">
               <div 

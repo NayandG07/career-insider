@@ -165,7 +165,7 @@ export const oauthCallback = async (req, res) => {
               }, '*');
               setTimeout(() => window.close(), 1200);
             } else {
-              window.location.href = '${clientUrl}/oauth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}#settings';
+              window.location.href = '${clientUrl}/oauth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}#dashboard';
             }
           </script>
         </body>

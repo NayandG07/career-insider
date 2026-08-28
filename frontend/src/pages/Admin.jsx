@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { adminService } from '../services/adminService';
 import { useApp } from '../context/AppContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Shield, Users, Key, Cpu, Activity, RefreshCw,
   TrendingUp, Database, Zap, CheckCircle2, AlertCircle,
@@ -151,7 +151,14 @@ function OverviewPanel({ health, userCount, keyCount, onNav }) {
 }
 
 export default function Admin() {
-  const [activeSection, setActiveSection] = useState('overview');
+  const getInitialSection = () => {
+    const hash = window.location.hash || '';
+    if (hash.includes('admin/ai-settings')) return 'ai-settings';
+    if (hash.includes('admin/users')) return 'users';
+    return 'overview';
+  };
+
+  const [activeSection, setActiveSection] = useState(getInitialSection);
   const [health, setHealth] = useState(null);
   const [userCount, setUserCount] = useState(null);
   const [keyCount, setKeyCount] = useState(null);
@@ -179,6 +186,10 @@ export default function Admin() {
   useEffect(() => {
     loadOverview();
   }, []);
+
+  useEffect(() => {
+    window.location.hash = `#admin/${activeSection}`;
+  }, [activeSection]);
 
   return (
     <div className="space-y-5 pb-12 text-left animate-fadeIn">

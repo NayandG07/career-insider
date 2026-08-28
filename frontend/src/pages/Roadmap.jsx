@@ -21,7 +21,7 @@ import {
   X,
   ArrowRight
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import ReadinessGate from '../components/ReadinessGate';
 
 const ROLE_OPTIONS = [
@@ -58,6 +58,23 @@ const ROLE_OPTIONS = [
 ];
 
 const WEEKLY_BUDGETS = [5, 10, 15, 20];
+
+const cleanText = (str) => {
+  if (!str) return '';
+  return str
+    .replace(/Moderate Evidence/gi, 'Moderate Match')
+    .replace(/Low Evidence/gi, 'Basic Match')
+    .replace(/High Evidence/gi, 'Strong Match')
+    .replace(/Advanced Evidence/gi, 'Excellent Match')
+    .replace(/Insufficient Evidence/gi, 'Basic Profile Data')
+    .replace(/evidence level/gi, 'profile match level')
+    .replace(/evidence/gi, 'profile match')
+    .replace(/telemetry/gi, 'profile activity')
+    .replace(/dependency path/gi, 'learning steps')
+    .replace(/dependency sequence/gi, 'learning steps')
+    .replace(/competencies/gi, 'skills')
+    .replace(/competency/gi, 'skill');
+};
 
 export default function Roadmap({ setActivePage }) {
   const {
@@ -157,7 +174,7 @@ export default function Roadmap({ setActivePage }) {
       triggerToast(`Personalized roadmap created for ${firstVisitRoles.join(' & ')}`);
     } catch (err) {
       console.error('Build roadmap error:', err);
-      setGenerationError('Failed to build roadmap. Make sure your telemetry sources are connected and try again.');
+      setGenerationError('Failed to build roadmap. Make sure your profile sources are connected and try again.');
       triggerToast('Failed to build roadmap.');
     } finally {
       setIsGenerating(false);
@@ -206,16 +223,6 @@ export default function Roadmap({ setActivePage }) {
     return milestoneMap.get(selectedMilestoneId) || milestones[0] || null;
   }, [selectedMilestoneId, milestoneMap, milestones]);
 
-  // Loading state before roadmap initialization completes
-  if (!hasInitialized) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <RefreshCw className="w-8 h-8 text-[#7C3AED] animate-spin" />
-        <p className="text-sm font-semibold text-[#6B7280]">Loading career growth roadmap...</p>
-      </div>
-    );
-  }
-
   // Readiness Gate Check
   if (readiness && !readiness.ready) {
     return (
@@ -223,23 +230,8 @@ export default function Roadmap({ setActivePage }) {
         featureName="Career Roadmap"
         readiness={readiness}
         setActivePage={setActivePage}
-        description="Your roadmap needs more verified developer information. Connect LeetCode, Codeforces, and add at least one project so AI can chart a personalized milestone path."
+        description="Connect your LeetCode, Codeforces, and add at least one project so AI can chart your personalized milestone path."
       />
-    );
-  }
-
-  // Generating state when no saved roadmap exists yet
-  if (isGenerating && !roadmap) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4 text-center max-w-md mx-auto py-12">
-        <div className="w-14 h-14 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-[#7C3AED]">
-          <RefreshCw className="w-7 h-7 animate-spin" />
-        </div>
-        <h2 className="text-lg font-bold text-[#111827]">Building Your Personalized Roadmap</h2>
-        <p className="text-xs font-semibold text-[#6B7280]">
-          Synthesizing repository languages, problem-solving telemetry, and target competencies into milestone dependency stages...
-        </p>
-      </div>
     );
   }
 
@@ -260,7 +252,7 @@ export default function Roadmap({ setActivePage }) {
             Choose where you want to go.
           </h1>
           <p className="text-sm text-[#4B5563] font-semibold max-w-2xl leading-relaxed">
-            Select one or more target career directions. CareerOS will analyze your verified code repositories, problem-solving telemetry, and project evidence to generate a personalized dependency roadmap.
+            Select one or more target career directions. CareerOS will analyze your connected code repositories, problem-solving accounts, and projects to generate a personalized dependency roadmap.
           </p>
         </div>
 
@@ -390,33 +382,7 @@ export default function Roadmap({ setActivePage }) {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // FIRST VISIT GENERATION LOADING STATE
-  // ─────────────────────────────────────────────────────────────────────────────
-  if (isGenerating && !roadmap) {
-    return (
-      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-16 text-center space-y-4 shadow-xs max-w-xl mx-auto my-12 animate-fadeIn">
-        <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto text-[#7C3AED]">
-          <RefreshCw className="w-7 h-7 animate-spin" />
-        </div>
-        <div className="space-y-1.5">
-          <h3 className="text-base font-bold text-[#111827]">
-            Analyzing Profile & Synthesizing Roadmap…
-          </h3>
-          <p className="text-xs text-[#6B7280] font-semibold leading-relaxed">
-            Evaluating your LeetCode, Codeforces, GitHub repositories, and showcase projects against target role expectations.
-          </p>
-        </div>
-        <div className="pt-2 flex justify-center gap-2">
-          {firstVisitRoles.map((r, idx) => (
-            <span key={idx} className="text-[10px] font-bold px-2.5 py-1 bg-purple-50 text-[#7C3AED] rounded-lg border border-purple-200">
-              {r}
-            </span>
-          ))}
-        </div>
-      </div>
-    );
-  }
+
 
   // ─────────────────────────────────────────────────────────────────────────────
   // STATE B: RETURNING USER (SAVED ROADMAP EXISTS)
@@ -458,16 +424,11 @@ export default function Roadmap({ setActivePage }) {
       {/* 1. Header with Compact Role Destination and Secondary Settings Action */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-[26px] sm:text-[28px] font-bold text-[#111827] tracking-tight leading-tight">
-              Career Growth Roadmap
-            </h1>
-            <span className="text-[10px] font-extrabold bg-purple-50 text-[#7C3AED] px-2 py-0.5 rounded-md uppercase tracking-wider border border-purple-200">
-              Personalized Path
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-[#4B5563] mt-1 font-semibold">
-            Targeting: <strong className="text-[#111827]">{roadmap?.targetRoles?.join(' • ') || 'Software Engineer'}</strong>
+          <h1 className="text-[26px] sm:text-[28px] font-bold text-[#111827] tracking-tight leading-tight">
+            Career Growth Roadmap
+          </h1>
+          <p className="text-xs sm:text-sm text-[#4B5563] mt-1 font-medium">
+            Detailed breakdown of your career milestones, skill development steps, and learning goals.
           </p>
         </div>
 
@@ -493,73 +454,75 @@ export default function Roadmap({ setActivePage }) {
       </div>
 
       {/* 2. Top Summary HUD */}
-      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#F3F4F6] pb-5">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span className="text-[10px] font-bold text-[#7C3AED] uppercase tracking-wider">
-                {roadmap?.summary?.currentEvidenceLevel || 'Verified Evidence Context'}
+      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 border-b border-[#F3F4F6] pb-6">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {cleanText(roadmap?.summary?.currentEvidenceLevel) || 'Verified Profile'}
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-[#7C3AED] border border-purple-200">
+                AI Roadmap Path
               </span>
             </div>
-            <h3 className="text-base sm:text-lg font-black text-[#111827] mt-1.5">
-              {roadmap?.summary?.title || (roadmap?.targetRoles?.length > 0 ? `Personalized Roadmap for ${roadmap.targetRoles.join(' + ')}` : 'Personalized Roadmap for Software Engineer')}
+            <h3 className="text-lg sm:text-xl font-bold text-[#111827] tracking-tight">
+              {cleanText(roadmap?.summary?.title) || (roadmap?.targetRoles?.length > 0 ? `Personalized Roadmap for ${roadmap.targetRoles.join(' & ')}` : 'Personalized Roadmap for Software Engineer')}
             </h3>
-            <p className="text-xs text-[#4B5563] font-semibold mt-0.5 leading-relaxed">
-              {roadmap?.summary?.description || 'Tailored sequence of milestone competencies based on your verified developer telemetry.'}
+            <p className="text-xs sm:text-sm text-[#4B5563] font-normal leading-relaxed max-w-3xl">
+              {cleanText(roadmap?.summary?.description) || 'Personalized milestones based on your verified developer profile.'}
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-start lg:self-center shrink-0">
-            <span className="text-[10px] font-bold text-gray-400 uppercase bg-[#FAFBFC] border border-[#E5E9F0] px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-gray-400" />
+          <div className="flex items-center gap-2 shrink-0 self-start lg:self-center">
+            <span className="text-[11px] font-medium text-[#4B5563] bg-[#FAFBFC] border border-[#E5E9F0] px-3.5 py-2 rounded-xl flex items-center gap-2 shadow-2xs">
+              <Calendar className="w-3.5 h-3.5 text-[#9CA3AF]" />
               <span>{roadmap?.generatedAt ? `Generated ${new Date(roadmap.generatedAt).toLocaleDateString()}` : 'Active'}</span>
             </span>
           </div>
         </div>
 
         {/* Metrics Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-
-          {/* Total Effort */}
-          <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-4 space-y-1">
-            <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Estimated Total Effort</span>
-            <div className="text-2xl font-black text-[#111827]">~{totalHours} Hours</div>
-            <p className="text-[10px] text-[#9CA3AF] font-bold">Sum of individual milestone estimates</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Estimated Total Effort */}
+          <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-5 space-y-2 relative overflow-hidden transition-all hover:shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Estimated Total Effort</span>
+              <Zap className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="space-y-0.5">
+              <div className="text-2xl font-bold text-[#111827]">~{totalHours} Hours</div>
+              <p className="text-xs font-normal text-[#9CA3AF]">Sum of milestone estimates</p>
+            </div>
           </div>
 
           {/* Dynamic Duration */}
-          <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-4 space-y-1">
-            <span className="text-[10px] font-bold text-[#7C3AED] uppercase tracking-wider">Target Timeline</span>
-            <div className="text-2xl font-black text-[#7C3AED]">≈ {totalWeeks} Weeks</div>
-            <p className="text-[10px] text-[#9CA3AF] font-bold">At {activeWeeklyHours}h / week pace</p>
+          <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-5 space-y-2 relative overflow-hidden transition-all hover:shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Target Timeline</span>
+              <Clock className="w-4 h-4 text-[#7C3AED]" />
+            </div>
+            <div className="space-y-0.5">
+              <div className="text-2xl font-bold text-[#7C3AED]">≈ {totalWeeks} Weeks</div>
+              <p className="text-xs font-normal text-[#9CA3AF]">At {activeWeeklyHours}h / week pace</p>
+            </div>
           </div>
 
           {/* Target Roles Breakdown */}
-          <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-4 space-y-1.5 sm:col-span-2 lg:col-span-1">
-            <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Target Roles</span>
-            <div className="flex flex-wrap gap-1.5">
+          <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-5 space-y-2 relative overflow-hidden transition-all hover:shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Target Roles</span>
+              <Target className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
               {roadmap?.targetRoles?.map((r, idx) => (
-                <span key={idx} className="text-[10px] font-extrabold px-2 py-0.5 bg-white border border-[#E5E9F0] text-[#111827] rounded-md">
+                <span key={idx} className="text-[11px] font-medium px-2.5 py-1 bg-white border border-[#E5E9F0] text-[#4B5563] rounded-lg shadow-2xs">
                   {r}
                 </span>
               ))}
             </div>
           </div>
-
         </div>
-
-        {/* Primary Focus Areas Pills */}
-        {roadmap?.summary?.primaryFocus?.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#F3F4F6]">
-            <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Primary Focus:</span>
-            {roadmap?.summary?.primaryFocus?.map((focus, fIdx) => (
-              <span key={fIdx} className="text-xs font-bold px-2.5 py-0.5 rounded-lg bg-purple-50 text-[#7C3AED] border border-purple-100">
-                {focus}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* 3. Main Milestone Dependency Graph & Detail Inspector */}
@@ -569,11 +532,11 @@ export default function Roadmap({ setActivePage }) {
         <div className="lg:col-span-8 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-[#111827] uppercase tracking-wider flex items-center gap-2">
-              <span>Prerequisite Dependency Sequence</span>
+              <span>Recommended Learning Path</span>
               <span className="text-[10px] font-normal text-gray-400">({milestones.length} Stages)</span>
             </h3>
             <span className="text-[11px] font-bold text-[#6B7280]">
-              Arrows denote recommended prerequisites
+              Arrows show recommended order
             </span>
           </div>
 
@@ -619,7 +582,7 @@ export default function Roadmap({ setActivePage }) {
                           </div>
 
                           <p className="text-xs text-[#4B5563] font-semibold leading-relaxed">
-                            {milestone.description}
+                            {cleanText(milestone.description)}
                           </p>
                         </div>
                       </div>
@@ -637,7 +600,7 @@ export default function Roadmap({ setActivePage }) {
                               ? 'text-emerald-700 bg-emerald-50'
                               : 'text-purple-700 bg-purple-50'
                             }`}>
-                            {milestone.gapLevel} Gap
+                            {milestone.gapLevel === 'high' ? 'High Focus' : milestone.gapLevel === 'low' ? 'Low Focus' : 'Medium Focus'}
                           </span>
                         )}
                       </div>
@@ -647,10 +610,10 @@ export default function Roadmap({ setActivePage }) {
                     {milestone.whyItMatters && (
                       <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3.5 text-xs text-[#4B5563] space-y-0.5">
                         <span className="font-bold text-[#111827] text-[11px] block">
-                          Why this matters for target role:
+                          Why this matters for your target role:
                         </span>
                         <p className="font-semibold text-[11px] leading-relaxed text-[#4B5563]">
-                          {milestone.whyItMatters}
+                          {cleanText(milestone.whyItMatters)}
                         </p>
                       </div>
                     )}
@@ -660,7 +623,7 @@ export default function Roadmap({ setActivePage }) {
                       <div className="text-xs text-[#111827] font-semibold flex items-start gap-2 pt-1">
                         <Target className="w-3.5 h-3.5 text-[#7C3AED] shrink-0 mt-0.5" />
                         <span className="text-[11px] leading-relaxed">
-                          <strong className="text-[#111827]">Expected Outcome:</strong> {milestone.outcome}
+                          <strong className="text-[#111827]">Expected Outcome:</strong> {cleanText(milestone.outcome)}
                         </span>
                       </div>
                     )}
@@ -671,7 +634,7 @@ export default function Roadmap({ setActivePage }) {
                         <FolderGit2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                         <div>
                           <span className="font-bold block text-[11px]">Recommended Showcase Project:</span>
-                          <p className="text-[11px] font-semibold leading-relaxed mt-0.5">{milestone.suggestedProject}</p>
+                          <p className="text-[11px] font-semibold leading-relaxed mt-0.5">{cleanText(milestone.suggestedProject)}</p>
                         </div>
                       </div>
                     )}
@@ -693,7 +656,7 @@ export default function Roadmap({ setActivePage }) {
                       {/* Prerequisites info */}
                       {prereqObjects.length > 0 ? (
                         <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold text-[#6B7280]">
-                          <span className="text-gray-400">Prereq:</span>
+                          <span className="text-gray-400">Requires:</span>
                           {prereqObjects.map((p, pIdx) => (
                             <span
                               key={pIdx}
@@ -707,7 +670,7 @@ export default function Roadmap({ setActivePage }) {
                         </div>
                       ) : (
                         <span className="text-[10px] font-bold text-gray-400">
-                          Direct Foundation
+                          No Prerequisites
                         </span>
                       )}
                     </div>
@@ -762,7 +725,7 @@ export default function Roadmap({ setActivePage }) {
                     {activeMilestone.title}
                   </h4>
                   <p className="text-xs text-[#4B5563] font-semibold mt-1 leading-relaxed">
-                    {activeMilestone.description}
+                    {cleanText(activeMilestone.description)}
                   </p>
                 </div>
 
@@ -770,10 +733,10 @@ export default function Roadmap({ setActivePage }) {
                 {activeMilestone.whyItMatters && (
                   <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-4 space-y-1">
                     <span className="text-[10px] font-bold text-[#111827] uppercase tracking-wider block">
-                      Role Competency Rationale
+                      Why This Milestone Matters
                     </span>
                     <p className="text-xs text-[#4B5563] font-semibold leading-relaxed">
-                      {activeMilestone.whyItMatters}
+                      {cleanText(activeMilestone.whyItMatters)}
                     </p>
                   </div>
                 )}
@@ -782,10 +745,10 @@ export default function Roadmap({ setActivePage }) {
                 {activeMilestone.outcome && (
                   <div className="bg-purple-50/40 border border-purple-100 rounded-2xl p-4 space-y-1">
                     <span className="text-[10px] font-bold text-[#7C3AED] uppercase tracking-wider block">
-                      Target Competency Outcome
+                      What You Will Learn
                     </span>
                     <p className="text-xs text-[#111827] font-semibold leading-relaxed">
-                      {activeMilestone.outcome}
+                      {cleanText(activeMilestone.outcome)}
                     </p>
                   </div>
                 )}
@@ -797,7 +760,7 @@ export default function Roadmap({ setActivePage }) {
                       Hands-on Project Blueprint
                     </span>
                     <p className="text-xs text-emerald-950 font-semibold leading-relaxed">
-                      {activeMilestone.suggestedProject}
+                      {cleanText(activeMilestone.suggestedProject)}
                     </p>
                   </div>
                 )}
@@ -805,7 +768,7 @@ export default function Roadmap({ setActivePage }) {
                 {/* Non-locking Navigation Tip */}
                 <div className="border-t border-[#F3F4F6] pt-3 text-[11px] text-[#6B7280] font-medium flex items-center gap-2">
                   <HelpCircle className="w-4 h-4 text-purple-400 shrink-0" />
-                  <span>Click any milestone to inspect its prerequisite relationship and learning objectives.</span>
+                  <span>Click any milestone to view details and learning goals.</span>
                 </div>
 
               </div>

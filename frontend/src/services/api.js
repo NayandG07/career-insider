@@ -49,13 +49,15 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${res.data.accessToken}`;
           return api(originalRequest);
         } catch (refreshError) {
-          // Refresh failed — clear tokens. The AppContext will detect the missing
-          // token on next render and return to unauthenticated state.
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
+          // Only clear tokens if the refresh endpoint explicitly rejected with 401/403.
+          // Do NOT clear tokens on network connection failures or server restarts!
+          if (refreshError.response?.status === 401 || refreshError.response?.status === 403) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+          }
         }
-      } else {
-        // No refresh token available — clear any stale access token
+      } else if (error.response?.status === 401) {
+        // No refresh token available and request was 401 — clear stale access token
         localStorage.removeItem('accessToken');
       }
     }

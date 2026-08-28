@@ -151,6 +151,135 @@ export default function Dashboard({ setActivePage }) {
 
   const displayedLanguages = showAllLanguages ? languageStats : languageStats.slice(0, 5);
 
+  // GitHub commit activity map
+  const ghSubmissionCalendar = useMemo(() => {
+    if (!ghData) return {};
+    if (ghData.submissionCalendar) return ghData.submissionCalendar;
+    if (ghData.commitCalendar) return ghData.commitCalendar;
+    
+    // Construct calendar map from recentPushEvents
+    const map = {};
+    if (Array.isArray(ghData.recentPushEvents)) {
+      ghData.recentPushEvents.forEach(evt => {
+        if (evt.date) {
+          const dateStr = new Date(evt.date).toISOString().slice(0, 10);
+          map[dateStr] = (map[dateStr] || 0) + (evt.commits || 1);
+        }
+      });
+    }
+    return map;
+  }, [ghData]);
+
+  const ghTotalCommits = useMemo(() => {
+    if (!ghData) return 0;
+    if (ghData.totalCommitsRecent !== undefined) return ghData.totalCommitsRecent;
+    return Object.values(ghSubmissionCalendar).reduce((sum, c) => sum + Number(c), 0);
+  }, [ghData, ghSubmissionCalendar]);
+
+  // Render rightmost panel for GitHub Heatmap (Active Repositories & Recent Commit Logs)
+  const ghSideContent = useMemo(() => {
+    if (!ghData) return null;
+
+    // Repos list with accurate per-repo stars
+    let reposList = ghData.recentRepos || [];
+    if (reposList.length === 0 && ghData.repos && Array.isArray(ghData.repos)) {
+      reposList = ghData.repos.map(r => ({
+        name: r.name,
+        stars: r.stargazers_count || 0,
+        forks: r.forks_count || 0,
+        url: r.html_url,
+        language: r.language || '',
+      }));
+    }
+    if (reposList.length === 0 && Array.isArray(ghData.recentPushEvents)) {
+      const repoNames = [...new Set(ghData.recentPushEvents.map(e => e.repo).filter(Boolean))];
+      reposList = repoNames.map(rName => {
+        const cleanName = rName.split('/')[1] || rName;
+        return {
+          name: cleanName,
+          stars: 0,
+          url: `https://github.com/${rName}`,
+          language: '',
+        };
+      });
+    }
+
+    // Deduplicate push events by distinct repository name and sum recent commits
+    const distinctPushLogsMap = new Map();
+    (ghData.recentPushEvents || []).forEach(evt => {
+      if (evt.repo) {
+        const repoName = evt.repo.split('/')[1] || evt.repo;
+        if (!distinctPushLogsMap.has(repoName)) {
+          distinctPushLogsMap.set(repoName, {
+            name: repoName,
+            commits: evt.commits || 1,
+            url: `https://github.com/${evt.repo}`,
+          });
+        } else {
+          const existing = distinctPushLogsMap.get(repoName);
+          existing.commits += (evt.commits || 1);
+        }
+      }
+    });
+    const pushLogs = Array.from(distinctPushLogsMap.values());
+
+    return (
+      <div className="space-y-3">
+        <div>
+          <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block mb-1.5">
+            Active Repositories ({ghData.publicRepos || reposList.length || 0})
+          </span>
+          {reposList.length > 0 ? (
+            <div className="space-y-1.5 max-h-[130px] overflow-y-auto no-scrollbar pr-1">
+              {reposList.slice(0, 3).map((repo, idx) => (
+                <a
+                  key={idx}
+                  href={repo.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between p-2 rounded-xl bg-[#FAFBFC] border border-[#E5E9F0] hover:border-[#7C3AED]/40 hover:bg-purple-50/20 transition-all text-xs group"
+                >
+                  <div className="flex items-center gap-2 truncate pr-2">
+                    <FolderGit2 className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#7C3AED] shrink-0" />
+                    <span className="font-bold text-[#111827] truncate group-hover:text-[#7C3AED]">{repo.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 text-[10px] font-bold text-gray-500">
+                    {repo.language && (
+                      <span className="px-1.5 py-0.5 rounded bg-white border border-[#E5E9F0] text-gray-700">
+                        {repo.language}
+                      </span>
+                    )}
+                    {repo.stars > 0 && (
+                      <span className="text-amber-600 font-extrabold">★ {repo.stars}</span>
+                    )}
+                  </div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 font-medium">No repositories found</p>
+          )}
+        </div>
+
+        {pushLogs.length > 0 && (
+          <div className="pt-2 border-t border-[#F3F4F6]">
+            <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block mb-1">
+              Recent Repository Activity
+            </span>
+            <div className="text-xs text-gray-700 font-semibold space-y-1">
+              {pushLogs.slice(0, 3).map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between text-[11px] text-gray-600">
+                  <span className="truncate max-w-[140px] font-medium text-gray-800">{item.name}</span>
+                  <span className="font-bold text-[#7C3AED]">{item.commits} commit{item.commits !== 1 ? 's' : ''}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }, [ghData]);
+
   // Cross-Platform Unified Recent Activity Stream
   const crossPlatformActivity = useMemo(() => {
     const events = [];
@@ -462,19 +591,72 @@ export default function Dashboard({ setActivePage }) {
 
           {cfData ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3.5 text-center">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Rating</span>
-                  <span className="text-2xl font-black text-[#111827] mt-0.5 block">{cfData.rating || 'Unrated'}</span>
-                  <span className="text-[10px] text-purple-700 font-bold block mt-0.5">Max {cfData.maxRating || cfData.rating}</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
+                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Rating</span>
+                  <span className="text-xl font-black text-[#111827] mt-0.5 block">{cfData.rating || 'Unrated'}</span>
+                  <span className="text-[9px] text-purple-700 font-bold block mt-0.5">Max {cfData.maxRating || cfData.rating}</span>
                 </div>
 
-                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3.5 text-center">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Rank Tier</span>
-                  <span className="text-base font-black text-amber-700 capitalize mt-1 block">{cfData.rank || 'Unrated'}</span>
-                  <span className="text-[10px] text-gray-500 font-semibold block mt-0.5">{cfData.contestCount || 0} Contests</span>
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
+                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Rank Tier</span>
+                  <span className="text-xs font-black text-amber-700 capitalize mt-1.5 block truncate">{cfData.rank || 'Unrated'}</span>
+                  <span className="text-[9px] text-gray-400 font-semibold block mt-0.5">Max {cfData.maxRank || cfData.rank}</span>
+                </div>
+
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
+                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Contests</span>
+                  <span className="text-xl font-black text-[#7C3AED] mt-0.5 block">{cfData.contestCount || 0}</span>
+                  <span className="text-[9px] text-gray-400 font-semibold block mt-0.5">Participated</span>
+                </div>
+
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
+                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Solved</span>
+                  <span className="text-xl font-black text-emerald-600 mt-0.5 block">{cfData.solvedCount || cfData.recentSubmissions?.length || 0}</span>
+                  <span className="text-[9px] text-gray-400 font-semibold block mt-0.5">Problems</span>
                 </div>
               </div>
+
+              {/* Top Problem Topics */}
+              {cfData.topTags?.length > 0 && (
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3.5 space-y-2">
+                  <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">
+                    Top Problem Topics
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {cfData.topTags.slice(0, 6).map((t, idx) => (
+                      <span key={idx} className="text-xs font-bold px-2.5 py-1 bg-white border border-[#E5E9F0] rounded-lg text-gray-800 shadow-xs">
+                        {t.tag} <span className="text-purple-600 font-extrabold">({t.count})</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Contest Rating History */}
+              {cfData.ratingHistory?.length > 0 && (
+                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3.5 space-y-2">
+                  <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">
+                    Recent Contest Rating Performance
+                  </span>
+                  <div className="space-y-1.5">
+                    {cfData.ratingHistory.slice(-3).reverse().map((c, idx) => {
+                      const diff = c.newRating - c.oldRating;
+                      return (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#E5E9F0] text-xs">
+                          <span className="font-bold text-[#111827] truncate pr-2 max-w-[180px]">{c.contestName}</span>
+                          <div className="flex items-center gap-2 shrink-0 text-xs">
+                            <span className="font-semibold text-gray-400 text-[10px]">Rank #{c.rank}</span>
+                            <span className={`font-black px-2 py-0.5 rounded-md text-[10px] ${diff >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                              {diff >= 0 ? `+${diff}` : diff} ({c.newRating})
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Recent Contest Solves */}
               {cfData.recentSubmissions?.length > 0 && (
@@ -484,17 +666,23 @@ export default function Dashboard({ setActivePage }) {
                   </span>
                   <div className="space-y-1.5">
                     {cfData.recentSubmissions.slice(0, 5).map((sub, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#E5E9F0] text-xs font-semibold text-gray-800">
+                      <a
+                        key={idx}
+                        href={sub.contestId && sub.index ? `https://codeforces.com/problemset/problem/${sub.contestId}/${sub.index}` : `https://codeforces.com/profile/${cfHandle}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#E5E9F0] hover:border-[#7C3AED]/40 transition-all text-xs font-semibold text-gray-800 group"
+                      >
                         <div className="flex items-center gap-2 truncate pr-2">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          <span className="truncate">{sub.problemName}</span>
+                          <span className="truncate group-hover:text-[#7C3AED]">{sub.problemName}</span>
                         </div>
-                        {sub.rating && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.2 bg-purple-50 text-[#7C3AED] rounded border border-purple-100 shrink-0">
-                            ★ {sub.rating}
+                        {sub.index && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 bg-purple-50 text-[#7C3AED] rounded border border-purple-100 shrink-0">
+                            Problem {sub.contestId ? `${sub.contestId}${sub.index}` : sub.index}
                           </span>
                         )}
-                      </div>
+                      </a>
                     ))}
                   </div>
                 </div>
@@ -520,164 +708,97 @@ export default function Dashboard({ setActivePage }) {
 
       </div>
 
-      {/* 4. ROW 2: GitHub Activity & Showcase Projects Snapshot */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* GitHub Activity Snapshot (7 Cols) */}
-        <div className="lg:col-span-7 bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-3">
-            <div className="flex items-center gap-2">
-              <Github className="w-5 h-5 text-gray-900" />
-              <div>
-                <h2 className="text-sm font-bold text-[#111827]">GitHub Repository & Commit Activity</h2>
-                <span className="text-[11px] text-[#6B7280] font-semibold">
-                  {ghHandle ? `@${ghHandle}` : 'Account not connected'}
-                </span>
-              </div>
+      {/* 4. ROW 2: GitHub Repository & Commit Activity */}
+      <div className="w-full bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-3">
+          <div className="flex items-center gap-2">
+            <Github className="w-5 h-5 text-gray-900" />
+            <div>
+              <h2 className="text-sm font-bold text-[#111827]">GitHub Repository & Commit Activity</h2>
+              <span className="text-[11px] text-[#6B7280] font-semibold">
+                {ghHandle ? `@${ghHandle}` : 'Account not connected'}
+              </span>
             </div>
-            {ghHandle && (
-              <a
-                href={`https://github.com/${ghHandle}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs font-bold text-[#7C3AED] hover:underline inline-flex items-center gap-1"
-              >
-                <span>View GitHub</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            )}
           </div>
-
-          {ghData ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Repositories</span>
-                  <span className="text-xl font-black text-[#111827] mt-0.5 block">{ghData.publicRepos || 0}</span>
-                </div>
-                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Stars</span>
-                  <span className="text-xl font-black text-amber-600 mt-0.5 block">★ {ghData.totalStars ?? ghData.stargazersTotal ?? 0}</span>
-                </div>
-                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Followers</span>
-                  <span className="text-xl font-black text-emerald-600 mt-0.5 block">{ghData.followers || 0}</span>
-                </div>
-              </div>
-
-              {/* Top Languages */}
-              {ghData.topLanguages?.length > 0 && (
-                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3.5 space-y-2">
-                  <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">
-                    Top Code Languages
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {ghData.topLanguages.slice(0, 6).map((lang, idx) => {
-                      const displayStat = (lang.percentage !== undefined && lang.percentage !== null)
-                        ? `${lang.percentage}%`
-                        : (lang.count || (lang.bytes ? `${Math.round(lang.bytes / 1024)} KB` : ''));
-                      return (
-                        <span key={idx} className="text-xs font-bold px-2.5 py-1 bg-white border border-[#E5E9F0] rounded-lg text-gray-800 shadow-xs">
-                          {lang.name} {displayStat ? <span className="text-gray-400 font-normal">({displayStat})</span> : null}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-8 text-center bg-[#FAFBFC] border border-dashed border-[#E5E9F0] rounded-2xl space-y-3">
-              <Github className="w-8 h-8 text-gray-300 mx-auto" />
-              <p className="text-xs text-gray-500 font-semibold">
-                GitHub account is not connected. Connect GitHub to index public repositories and showcase activity.
-              </p>
-              {setActivePage && (
-                <button
-                  onClick={() => setActivePage('settings')}
-                  className="px-3.5 py-1.5 bg-[#111827] text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-gray-800 transition-all"
-                >
-                  Connect GitHub
-                </button>
-              )}
-            </div>
+          {ghHandle && (
+            <a
+              href={`https://github.com/${ghHandle}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-bold text-[#7C3AED] hover:underline inline-flex items-center gap-1"
+            >
+              <span>View GitHub</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
           )}
         </div>
 
-        {/* Showcase Projects Snapshot (5 Cols) */}
-        <div className="lg:col-span-5 bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-3">
-            <div className="flex items-center gap-2">
-              <FolderGit2 className="w-5 h-5 text-[#7C3AED]" />
-              <div>
-                <h2 className="text-sm font-bold text-[#111827]">Showcase Projects</h2>
-                <span className="text-[11px] text-[#6B7280] font-semibold">
-                  {projects.length} verified project{projects.length !== 1 ? 's' : ''}
-                </span>
+        {ghData ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Repositories</span>
+                <span className="text-xl font-black text-[#111827] mt-0.5 block">{ghData.publicRepos || 0}</span>
+              </div>
+              <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Stars</span>
+                <span className="text-xl font-black text-amber-600 mt-0.5 block">★ {ghData.totalStars ?? ghData.stargazersTotal ?? 0}</span>
+              </div>
+              <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Followers</span>
+                <span className="text-xl font-black text-emerald-600 mt-0.5 block">{ghData.followers || 0}</span>
               </div>
             </div>
+
+            {/* Top Languages */}
+            {ghData.topLanguages?.length > 0 && (
+              <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3.5 space-y-2">
+                <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">
+                  Top Code Languages
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {ghData.topLanguages.slice(0, 6).map((lang, idx) => {
+                    const displayStat = (lang.percentage !== undefined && lang.percentage !== null)
+                      ? `${lang.percentage}%`
+                      : (lang.count || (lang.bytes ? `${Math.round(lang.bytes / 1024)} KB` : ''));
+                    return (
+                      <span key={idx} className="text-xs font-bold px-2.5 py-1 bg-white border border-[#E5E9F0] rounded-lg text-gray-800 shadow-xs">
+                        {lang.name} {displayStat ? <span className="text-gray-400 font-normal">({displayStat})</span> : null}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* GitHub Commit Activity Heatmap */}
+            <div>
+              <LeetCodeHeatmap 
+                submissionCalendar={ghSubmissionCalendar}
+                totalPastYearSubmissions={ghTotalCommits}
+                totalActiveDays={Object.keys(ghSubmissionCalendar).length}
+                unitName="commits"
+                timeRangeText={`in ${new Date().getFullYear()}`}
+                sideContent={ghSideContent}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="p-8 text-center bg-[#FAFBFC] border border-dashed border-[#E5E9F0] rounded-2xl space-y-3">
+            <Github className="w-8 h-8 text-gray-300 mx-auto" />
+            <p className="text-xs text-gray-500 font-semibold">
+              GitHub account is not connected. Connect GitHub to index public repositories and showcase activity.
+            </p>
             {setActivePage && (
               <button
-                onClick={() => setActivePage('projects')}
-                className="text-xs font-bold text-[#7C3AED] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                onClick={() => setActivePage('settings')}
+                className="px-3.5 py-1.5 bg-[#111827] text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-gray-800 transition-all"
               >
-                <span>View All</span>
-                <ExternalLink className="w-3.5 h-3.5" />
+                Connect GitHub
               </button>
             )}
           </div>
-
-          {projects.length > 0 ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Showcase Items</span>
-                  <span className="text-xl font-black text-[#111827] mt-0.5 block">{projects.length}</span>
-                </div>
-                <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Featured Stacks</span>
-                  <span className="text-xl font-black text-[#7C3AED] mt-0.5 block">
-                    {new Set(projects.flatMap(p => p.technologies || [])).size}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                {projects.slice(0, 3).map((p, idx) => (
-                  <div key={idx} className="p-3 bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl flex items-center justify-between text-xs">
-                    <div>
-                      <h4 className="font-bold text-[#111827]">{p.title}</h4>
-                      <p className="text-[10px] text-gray-500 font-semibold truncate max-w-[200px]">
-                        {(p.technologies || []).slice(0, 3).join(', ')}
-                      </p>
-                    </div>
-                    {p.repoUrl && (
-                      <a href={p.repoUrl} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-gray-700">
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="p-8 text-center bg-[#FAFBFC] border border-dashed border-[#E5E9F0] rounded-2xl space-y-3">
-              <FolderGit2 className="w-8 h-8 text-gray-300 mx-auto" />
-              <p className="text-xs text-gray-500 font-semibold">
-                No projects imported yet. Add custom projects or import repositories from GitHub.
-              </p>
-              {setActivePage && (
-                <button
-                  onClick={() => setActivePage('projects')}
-                  className="px-3.5 py-1.5 bg-[#7C3AED] text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-[#6D28D9] transition-all"
-                >
-                  Import Projects
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
+        )}
       </div>
 
       {/* 5. ROW 3: Cross-Platform Recent Activity & Source Health / Data Freshness */}

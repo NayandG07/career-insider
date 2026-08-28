@@ -9,7 +9,7 @@ import {
   Send,
   MessageSquareCode
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function Recommendations() {
   const [selectedRoles, setSelectedRoles] = useState(['Backend Engineer']);
