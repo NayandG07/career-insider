@@ -21,13 +21,11 @@ const projectSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      maxlength: 120,
     },
     description: {
       type: String,
       default: '',
       trim: true,
-      maxlength: 1000,
     },
     primaryLanguage: {
       type: String,
@@ -38,13 +36,11 @@ const projectSchema = new mongoose.Schema(
       type: String,
       default: '',
       trim: true,
-      maxlength: 500,
     },
     solution: {
       type: String,
       default: '',
       trim: true,
-      maxlength: 500,
     },
     technologies: {
       type: [String],
@@ -54,13 +50,11 @@ const projectSchema = new mongoose.Schema(
       type: String,
       default: '',
       trim: true,
-      maxlength: 300,
     },
     liveDemoUrl: {
       type: String,
       default: '',
       trim: true,
-      maxlength: 300,
     },
     isPrivate: {
       type: Boolean,

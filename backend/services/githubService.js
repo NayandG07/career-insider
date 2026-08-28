@@ -9,72 +9,104 @@ import axios from 'axios';
  * @returns {object} Aggregated GitHub data
  */
 export async function fetchGitHubData(username, accessToken) {
-  const headers = accessToken
-    ? { Authorization: `Bearer ${accessToken}`, Accept: 'application/vnd.github.v3+json' }
-    : { Accept: 'application/vnd.github.v3+json' };
+  const headers = {
+    Accept: 'application/vnd.github.v3+json',
+    'User-Agent': 'CareerOS-App',
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+  };
 
   const baseUrl = 'https://api.github.com';
 
   try {
-    // Fetch user profile
-    const userRes = await axios.get(`${baseUrl}/users/${username}`, { headers });
+    // Fetch user profile and repos concurrently
+    const [userRes, reposRes] = await Promise.all([
+      axios.get(`${baseUrl}/users/${username}`, { headers, timeout: 8000 }),
+      axios.get(`${baseUrl}/users/${username}/repos`, {
+        headers,
+        params: { sort: 'updated', per_page: 100, type: 'owner' },
+        timeout: 8000,
+      }),
+    ]);
+
     const profile = userRes.data;
+    const repos = Array.isArray(reposRes.data) ? reposRes.data : [];
 
-    // Fetch repos (up to 100, sorted by recently updated)
-    const reposRes = await axios.get(`${baseUrl}/users/${username}/repos`, {
-      headers,
-      params: { sort: 'updated', per_page: 100, type: 'owner' },
-    });
-    const repos = reposRes.data;
-
-    // Aggregate language usage across repos
+    // Aggregate language usage across top 15 recently updated repos in parallel
     const languageCounts = {};
-    for (const repo of repos.slice(0, 30)) {
-      // Limit to 30 repos to avoid rate limiting
-      try {
-        const langRes = await axios.get(repo.languages_url, { headers });
-        for (const [lang, bytes] of Object.entries(langRes.data)) {
-          languageCounts[lang] = (languageCounts[lang] || 0) + bytes;
+    const topRepos = repos.slice(0, 15);
+    const langResults = await Promise.allSettled(
+      topRepos.map((repo) =>
+        repo.languages_url
+          ? axios.get(repo.languages_url, { headers, timeout: 5000 }).then((r) => r.data)
+          : Promise.resolve({})
+      )
+    );
+
+    for (const res of langResults) {
+      if (res.status === 'fulfilled' && res.value && typeof res.value === 'object') {
+        for (const [lang, bytes] of Object.entries(res.value)) {
+          if (typeof bytes === 'number') {
+            languageCounts[lang] = (languageCounts[lang] || 0) + bytes;
+          }
         }
-      } catch {
-        // Skip if language fetch fails for a repo
       }
     }
 
-    // Sort languages by usage
+    // Calculate total bytes and percentage per language
+    const totalBytes = Object.values(languageCounts).reduce((a, b) => a + b, 0);
     const topLanguages = Object.entries(languageCounts)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 10)
-      .map(([name, bytes]) => ({ name, bytes }));
+      .map(([name, bytes]) => {
+        const pct = totalBytes > 0 ? Math.round((bytes / totalBytes) * 100) : 0;
+        return {
+          name,
+          bytes,
+          percentage: pct,
+          count: `${pct}%`,
+        };
+      });
 
     // Fetch recent events (commits, PRs, etc.)
-    const eventsRes = await axios.get(`${baseUrl}/users/${username}/events`, {
-      headers,
-      params: { per_page: 50 },
-    });
-    const pushEvents = eventsRes.data
-      .filter((e) => e.type === 'PushEvent')
-      .slice(0, 20)
-      .map((e) => ({
-        repo: e.repo.name,
-        commits: e.payload.commits?.length || 0,
-        date: e.created_at,
-      }));
+    let pushEvents = [];
+    let totalCommitsRecent = 0;
+    try {
+      const eventsRes = await axios.get(`${baseUrl}/users/${username}/events`, {
+        headers,
+        params: { per_page: 30 },
+        timeout: 5000,
+      });
+      if (Array.isArray(eventsRes.data)) {
+        pushEvents = eventsRes.data
+          .filter((e) => e.type === 'PushEvent')
+          .slice(0, 20)
+          .map((e) => ({
+            repo: e.repo?.name || '',
+            commits: e.payload?.commits?.length || 0,
+            date: e.created_at,
+          }));
+        totalCommitsRecent = pushEvents.reduce((sum, e) => sum + e.commits, 0);
+      }
+    } catch {
+      // Events are optional, ignore if failed
+    }
 
-    const totalCommitsRecent = pushEvents.reduce((sum, e) => sum + e.commits, 0);
+    const stargazersTotal = repos.reduce((sum, r) => sum + (r.stargazers_count || 0), 0);
+    const forksTotal = repos.reduce((sum, r) => sum + (r.forks_count || 0), 0);
 
     return {
       username: profile.login,
-      name: profile.name,
-      publicRepos: profile.public_repos,
-      followers: profile.followers,
-      following: profile.following,
+      name: profile.name || profile.login,
+      publicRepos: profile.public_repos || repos.length,
+      followers: profile.followers || 0,
+      following: profile.following || 0,
       totalRepos: repos.length,
       topLanguages,
       recentPushEvents: pushEvents,
       totalCommitsRecent,
-      stargazersTotal: repos.reduce((sum, r) => sum + (r.stargazers_count || 0), 0),
-      forksTotal: repos.reduce((sum, r) => sum + (r.forks_count || 0), 0),
+      stargazersTotal,
+      totalStars: stargazersTotal,
+      forksTotal,
     };
   } catch (error) {
     console.error(`GitHub fetch error for ${username}:`, error.message);

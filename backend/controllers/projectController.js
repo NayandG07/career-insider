@@ -21,24 +21,38 @@ export const getProjects = async (req, res) => {
  */
 export const createProject = async (req, res) => {
   try {
-    const { title, problem, solution, technologies, repositoryUrl, liveDemoUrl } = req.body;
+    const {
+      title,
+      description,
+      problem,
+      solution,
+      technologies,
+      repositoryUrl,
+      liveDemoUrl,
+      source,
+      githubRepositoryId,
+      primaryLanguage,
+      isPrivate,
+    } = req.body;
 
-    if (!title || !problem || !solution || !technologies || !Array.isArray(technologies) || technologies.length === 0) {
-      return res.status(400).json({ error: 'title, problem, solution, and at least one technology are required.' });
-    }
-
-    if (technologies.length > 10) {
-      return res.status(400).json({ error: 'Maximum 10 technologies allowed.' });
+    const descOrProb = (problem || description || '').trim();
+    if (!title?.trim() || !descOrProb || !technologies || !Array.isArray(technologies) || technologies.length === 0) {
+      return res.status(400).json({ error: 'Title, description/problem, and at least one technology are required.' });
     }
 
     const project = await Project.create({
       userId: req.user._id,
-      title: title.trim().slice(0, 60),
-      problem: problem.trim().slice(0, 500),
-      solution: solution.trim().slice(0, 500),
-      technologies,
-      repositoryUrl: repositoryUrl?.trim().slice(0, 300) || '',
-      liveDemoUrl: liveDemoUrl?.trim().slice(0, 300) || '',
+      title: title.trim(),
+      description: (description || problem || '').trim(),
+      problem: (problem || description || '').trim(),
+      solution: (solution || '').trim(),
+      technologies: Array.isArray(technologies) ? technologies : [technologies],
+      repositoryUrl: repositoryUrl?.trim() || '',
+      liveDemoUrl: liveDemoUrl?.trim() || '',
+      source: source === 'github' ? 'github' : 'custom',
+      githubRepositoryId: githubRepositoryId ? Number(githubRepositoryId) : null,
+      primaryLanguage: primaryLanguage?.trim() || '',
+      isPrivate: Boolean(isPrivate),
     });
 
     res.status(201).json(project);
@@ -72,25 +86,34 @@ export const updateProject = async (req, res) => {
       return res.status(403).json({ error: 'Forbidden. You do not own this project.' });
     }
 
-    const { title, description, problem, solution, technologies, repositoryUrl, liveDemoUrl } = req.body;
+    const {
+      title,
+      description,
+      problem,
+      solution,
+      technologies,
+      repositoryUrl,
+      liveDemoUrl,
+      primaryLanguage,
+      isPrivate,
+    } = req.body;
 
     if (technologies !== undefined) {
       if (!Array.isArray(technologies) || technologies.length === 0) {
         return res.status(400).json({ error: 'At least one technology is required.' });
       }
-      if (technologies.length > 10) {
-        return res.status(400).json({ error: 'Maximum 10 technologies allowed.' });
-      }
     }
 
     const updates = {};
-    if (title !== undefined) updates.title = title.trim().slice(0, 120);
-    if (description !== undefined) updates.description = description.trim().slice(0, 1000);
-    if (problem !== undefined) updates.problem = problem.trim().slice(0, 500);
-    if (solution !== undefined) updates.solution = solution.trim().slice(0, 500);
+    if (title !== undefined) updates.title = title.trim();
+    if (description !== undefined) updates.description = description.trim();
+    if (problem !== undefined) updates.problem = problem.trim();
+    if (solution !== undefined) updates.solution = solution.trim();
     if (technologies !== undefined) updates.technologies = technologies;
-    if (repositoryUrl !== undefined) updates.repositoryUrl = repositoryUrl.trim().slice(0, 300);
-    if (liveDemoUrl !== undefined) updates.liveDemoUrl = liveDemoUrl.trim().slice(0, 300);
+    if (repositoryUrl !== undefined) updates.repositoryUrl = repositoryUrl.trim();
+    if (liveDemoUrl !== undefined) updates.liveDemoUrl = liveDemoUrl.trim();
+    if (primaryLanguage !== undefined) updates.primaryLanguage = primaryLanguage.trim();
+    if (isPrivate !== undefined) updates.isPrivate = Boolean(isPrivate);
 
     const updated = await Project.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
     res.json(updated);

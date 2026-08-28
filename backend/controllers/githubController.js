@@ -48,10 +48,12 @@ export const getRepositories = async (req, res) => {
     }
 
     // Re-validate identity & fetch repositories using authenticated token
-    const [githubUser, githubRepos] = await Promise.all([
+    const [githubUser, reposData] = await Promise.all([
       fetchGithubApi('/user', accessToken),
       fetchGithubApi('/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator', accessToken),
     ]);
+    const githubUsername = githubUser.login || user.auth?.github?.username || '';
+    const githubRepos = Array.isArray(reposData) ? reposData : [];
 
     // Update username if needed
     if (githubUser.login && user.auth.github.username !== githubUser.login) {
@@ -66,7 +68,7 @@ export const getRepositories = async (req, res) => {
       source: 'github',
     }).select('githubRepositoryId');
 
-    const importedSet = new Set(existingProjects.map((p) => p.githubRepositoryId));
+    const importedSet = new Set(existingProjects.map((p) => p.githubRepositoryId).filter(Boolean));
 
     const normalizedRepos = githubRepos.map((repo) => ({
       githubId: repo.id,
@@ -77,13 +79,13 @@ export const getRepositories = async (req, res) => {
       repositoryUrl: repo.html_url,
       liveDemoUrl: repo.homepage || '',
       isPrivate: repo.private || false,
-      stars: repo.stargazers_count,
+      stars: repo.stargazers_count || 0,
       updatedAt: repo.updated_at,
       alreadyImported: importedSet.has(repo.id),
     }));
 
     res.json({
-      username: githubUser.login || user.auth.github.username || user.connectedSources.github || '',
+      username: githubUsername,
       repositories: normalizedRepos,
     });
   } catch (error) {

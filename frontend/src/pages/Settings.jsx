@@ -7,13 +7,9 @@ import {
   ShieldCheck,
   Github,
   Code,
-  Terminal,
   Award,
-  FileText,
-  CheckCircle2,
   AlertCircle,
   X,
-  ExternalLink,
   Save,
   Download,
   Edit2,
@@ -21,6 +17,7 @@ import {
   User,
   Mail,
   Calendar,
+  Layers,
   Sparkles,
 } from 'lucide-react';
 import { userService } from '../services/userService';
@@ -35,7 +32,7 @@ export default function Settings() {
   const { userData, refreshUser } = useApp();
   const { showToast } = useToast();
 
-  // Modal State
+  // Modal & Notice State
   const [showRepoPicker, setShowRepoPicker] = useState(false);
   const [notice, setNotice] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
@@ -53,54 +50,32 @@ export default function Settings() {
     }
   }, [userData]);
 
+  // Check sessionStorage notice on mount
+  useEffect(() => {
+    const savedNotice = sessionStorage.getItem('settings_notice');
+    if (savedNotice) {
+      setNotice({ type: 'info', text: savedNotice });
+      sessionStorage.removeItem('settings_notice');
+    }
+  }, []);
+
   // GitHub Connection State
   const githubUsername = userData?.connectedSources?.github || userData?.auth?.github?.username || '';
   const isGithubConnected = !!(githubUsername || userData?.auth?.github?.id);
 
-  // Codeforces Profile State
-  const [cfProfile, setCfProfile] = useState(null);
+  // Codeforces State
   const cfHandle = userData?.connectedSources?.codeforces || '';
   const isCfConnected = !!cfHandle;
 
-  // LeetCode Profile State
-  const [lcProfile, setLcProfile] = useState(null);
+  // LeetCode State
   const lcHandle = userData?.connectedSources?.leetcode || '';
   const isLcConnected = !!lcHandle;
 
-  // Load Codeforces Profile data if connected
-  useEffect(() => {
-    if (isCfConnected) {
-      codeforcesService.getProfile()
-        .then(res => {
-          if (res.connected && res.data) {
-            setCfProfile(res.data);
-          }
-        })
-        .catch(() => {});
-    } else {
-      setCfProfile(null);
-    }
-  }, [isCfConnected]);
-
-  // Load LeetCode Profile data if connected
-  useEffect(() => {
-    if (isLcConnected) {
-      leetcodeService.getProfile()
-        .then(res => {
-          if (res.connected && res.data) {
-            setLcProfile(res.data);
-          }
-        })
-        .catch(() => {});
-    } else {
-      setLcProfile(null);
-    }
-  }, [isLcConnected]);
-
-  // Platform Handles State (LeetCode, Codeforces)
-  const [editingPlatform, setEditingPlatform] = useState(null); // 'leetcode' | 'codeforces'
+  // Platform Handles State
+  const [editingPlatform, setEditingPlatform] = useState(null); // 'github' | 'leetcode' | 'codeforces'
   const [platformInput, setPlatformInput] = useState('');
   const [platformSaving, setPlatformSaving] = useState(false);
+  const [syncingPlatform, setSyncingPlatform] = useState(null);
 
   // Notification Preferences (persisted in localStorage)
   const [notifications, setNotifications] = useState(() => {
@@ -153,13 +128,9 @@ export default function Settings() {
   // Handle Profile Update
   const handleSaveProfile = async (e) => {
     e.preventDefault();
-    if (!profileName.trim()) {
-      showToast?.('Name cannot be empty.', 'error');
-      return;
-    }
     setProfileLoading(true);
     try {
-      await userService.updateMe({
+      await userService.updateProfile({
         name: profileName.trim(),
         bio: profileBio.trim(),
       });
@@ -168,165 +139,93 @@ export default function Settings() {
       showToast?.('Profile updated successfully.', 'success');
     } catch (err) {
       console.error(err);
-      showToast?.(err.response?.data?.error || 'Failed to update profile.', 'error');
+      showToast?.(err.response?.data?.message || 'Failed to update profile.', 'error');
     } finally {
       setProfileLoading(false);
     }
   };
 
-  // Handle GitHub OAuth Launch / Disconnect
-  const handleGithubAction = async () => {
-    if (isGithubConnected) {
-      setConfirmDialog({
-        title: 'Disconnect GitHub',
-        message: 'Are you sure you want to disconnect your GitHub account from CareerOS? Your imported repository projects will remain, but you will not be able to sync or import new ones.',
-        onConfirm: async () => {
-          try {
-            await githubService.disconnect();
-            await refreshUser?.();
-            showToast?.('GitHub disconnected.', 'info');
-          } catch (err) {
-            console.error(err);
-            showToast?.('Failed to disconnect GitHub.', 'error');
-          } finally {
-            setConfirmDialog(null);
-          }
-        }
-      });
-    } else {
-      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const token = localStorage.getItem('accessToken');
-      const url = `${backendUrl}/api/auth/github${token ? `?token=${encodeURIComponent(token)}` : ''}`;
-      window.open(url, '_blank');
-    }
+  // Handle GitHub OAuth
+  const handleGithubOAuthAction = () => {
+    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const token = localStorage.getItem('accessToken');
+    const url = `${backendUrl}/api/auth/github${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    window.open(url, '_blank');
   };
 
-  // Handle Codeforces Connect / Sync / Disconnect
-  const handleConnectCodeforces = async () => {
+  // Handle Saving Platform Handle (GitHub, LeetCode, Codeforces)
+  const handleSavePlatformHandle = async (platformKey) => {
     if (!platformInput.trim()) return;
     setPlatformSaving(true);
-    const cleanHandle = platformInput.trim().replace(/^@/, '');
     try {
-      const res = await codeforcesService.connect(cleanHandle);
-      setCfProfile(res.data);
-      await refreshUser?.();
-      setEditingPlatform(null);
-      setPlatformInput('');
-      showToast?.(`Codeforces connected as @${cleanHandle}`, 'success');
-    } catch (err) {
-      console.error(err);
-      const msg = err.response?.data?.error || err.message;
-      if (msg && msg.toLowerCase().includes('not found')) {
-        showToast?.('Codeforces handle not found.', 'error');
-      } else {
-        showToast?.('Unable to connect to Codeforces right now. Please try again.', 'error');
-      }
-    } finally {
-      setPlatformSaving(false);
-    }
-  };
+      const cleanHandle = platformInput.trim().replace(/^@/, '');
 
-  const handleSyncCodeforces = async () => {
-    setCfSyncing(true);
-    try {
-      const res = await codeforcesService.sync();
-      setCfProfile(res.data);
-      await refreshUser?.();
-      showToast?.('Codeforces profile synced successfully!', 'success');
-    } catch (err) {
-      console.error(err);
-      showToast?.(err.response?.data?.error || 'Unable to sync Codeforces right now. Please try again.', 'error');
-    } finally {
-      setCfSyncing(false);
-    }
-  };
-
-  const handleDisconnectCodeforces = () => {
-    setConfirmDialog({
-      title: 'Disconnect Codeforces',
-      message: 'Are you sure you want to disconnect your Codeforces account handle from CareerOS?',
-      onConfirm: async () => {
-        try {
-          await codeforcesService.disconnect();
-          setCfProfile(null);
-          await refreshUser?.();
-          showToast?.('Codeforces disconnected.', 'info');
-        } catch (err) {
-          console.error(err);
-          showToast?.('Failed to disconnect Codeforces.', 'error');
-        } finally {
-          setConfirmDialog(null);
-        }
-      }
-    });
-  };
-
-  // Handle Platform Handles Connect / Disconnect (LeetCode, Codeforces)
-  const handleSavePlatformHandle = async (key) => {
-    if (key === 'codeforces') {
-      return handleConnectCodeforces();
-    }
-
-    if (!platformInput.trim()) return;
-    setPlatformSaving(true);
-    const cleanHandle = platformInput.trim().replace(/^@/, '');
-
-    try {
-      if (key === 'leetcode') {
-        const res = await leetcodeService.connect(cleanHandle);
-        setLcProfile(res.data);
+      if (platformKey === 'codeforces') {
+        await codeforcesService.connect(cleanHandle);
         await refreshUser?.();
-        setEditingPlatform(null);
-        setPlatformInput('');
-        showToast?.(`LeetCode connected as @${cleanHandle}`, 'success');
-        return;
+        showToast?.(`Codeforces handle @${cleanHandle} connected successfully!`, 'success');
+      } else if (platformKey === 'leetcode') {
+        await leetcodeService.connect(cleanHandle);
+        await refreshUser?.();
+        showToast?.(`LeetCode handle @${cleanHandle} connected successfully!`, 'success');
+      } else if (platformKey === 'github') {
+        await githubService.connect(cleanHandle);
+        await refreshUser?.();
+        showToast?.(`GitHub handle @${cleanHandle} connected successfully!`, 'success');
       }
 
-      const currentSources = userData?.connectedSources || {};
-      let updatedSources = { ...currentSources };
-      updatedSources[key] = cleanHandle;
-
-      await userService.updateMe({ connectedSources: updatedSources });
-      await refreshUser?.();
       setEditingPlatform(null);
       setPlatformInput('');
-      showToast?.(`Connected ${key} as @${cleanHandle}`, 'success');
     } catch (err) {
-      console.error(err);
-      showToast?.(err.response?.data?.error || `Failed to update ${key}.`, 'error');
+      console.error('Save platform handle error:', err);
+      const errMsg = err.response?.data?.error || err.response?.data?.message || err.message || `Failed to connect ${platformKey}.`;
+      showToast?.(errMsg, 'error');
     } finally {
       setPlatformSaving(false);
     }
   };
 
-  const handleDisconnectPlatform = async (key) => {
-    if (key === 'codeforces') {
-      return handleDisconnectCodeforces();
+  // Handle Sync Platform Data
+  const handleSyncPlatform = async (platformKey, handle) => {
+    if (!handle) return;
+    setSyncingPlatform(platformKey);
+    try {
+      if (platformKey === 'codeforces') {
+        await codeforcesService.sync(handle);
+      } else if (platformKey === 'leetcode') {
+        await leetcodeService.sync(handle);
+      } else if (platformKey === 'github') {
+        await githubService.sync(handle);
+      }
+      await refreshUser?.();
+      showToast?.(`Synced ${platformKey} data successfully.`, 'success');
+    } catch (err) {
+      console.error(`Sync error for ${platformKey}:`, err);
+      showToast?.(`Failed to sync ${platformKey} data.`, 'error');
+    } finally {
+      setSyncingPlatform(null);
     }
+  };
 
+  // Handle Disconnecting a Platform
+  const handleDisconnectPlatform = (platformKey) => {
     setConfirmDialog({
-      title: `Disconnect ${key.charAt(0).toUpperCase() + key.slice(1)}`,
-      message: `Are you sure you want to disconnect your ${key} account handle from CareerOS?`,
+      title: `Disconnect ${platformKey.charAt(0).toUpperCase() + platformKey.slice(1)}?`,
+      message: `Are you sure you want to disconnect ${platformKey}? Your profile metrics will no longer sync from this source.`,
       onConfirm: async () => {
         try {
-          if (key === 'leetcode') {
+          if (platformKey === 'github') {
+            await githubService.disconnect();
+          } else if (platformKey === 'codeforces') {
+            await codeforcesService.disconnect();
+          } else if (platformKey === 'leetcode') {
             await leetcodeService.disconnect();
-            setLcProfile(null);
-            await refreshUser?.();
-            showToast?.('LeetCode disconnected.', 'info');
-            return;
           }
-
-          const currentSources = userData?.connectedSources || {};
-          let updatedSources = { ...currentSources };
-          updatedSources[key] = '';
-
-          await userService.updateMe({ connectedSources: updatedSources });
           await refreshUser?.();
-          showToast?.(`Disconnected ${key}.`, 'info');
+          showToast?.(`Disconnected ${platformKey} successfully.`, 'success');
         } catch (err) {
-          console.error(err);
-          showToast?.(`Failed to disconnect ${key}.`, 'error');
+          console.error(`Disconnect error for ${platformKey}:`, err);
+          showToast?.(err.response?.data?.error || `Failed to disconnect ${platformKey}.`, 'error');
         } finally {
           setConfirmDialog(null);
         }
@@ -334,24 +233,26 @@ export default function Settings() {
     });
   };
 
-  // Handle Password Change
+  // Handle Password Update
   const handlePasswordChange = async (e) => {
     e.preventDefault();
-    setPassLoading(true);
-    setPassMessage(null);
-
     if (passwordFields.newPassword !== passwordFields.confirmPassword) {
-      setPassMessage({ type: 'error', text: 'New passwords do not match!' });
-      setPassLoading(false);
+      setPassMessage({ type: 'error', text: 'New passwords do not match.' });
+      return;
+    }
+    if (passwordFields.newPassword.length < 6) {
+      setPassMessage({ type: 'error', text: 'Password must be at least 6 characters.' });
       return;
     }
 
+    setPassLoading(true);
+    setPassMessage(null);
     try {
-      const res = await userService.changePassword({
-        oldPassword: passwordFields.oldPassword,
+      await userService.changePassword({
+        currentPassword: passwordFields.oldPassword,
         newPassword: passwordFields.newPassword
       });
-      setPassMessage({ type: 'success', text: res.message || 'Password updated successfully!' });
+      setPassMessage({ type: 'success', text: 'Password changed successfully.' });
       setPasswordFields({
         oldPassword: '',
         newPassword: '',
@@ -374,8 +275,6 @@ export default function Settings() {
     try {
       const exportPayload = {
         user: userData,
-        codeforces: cfProfile,
-        leetcode: lcProfile,
         exportedAt: new Date().toISOString(),
       };
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportPayload, null, 2));
@@ -395,37 +294,36 @@ export default function Settings() {
   const platforms = [
     {
       key: 'github',
-      name: "GitHub Repositories & Commits",
-      desc: isGithubConnected 
-        ? `Connected as @${githubUsername}` 
-        : "Syncs public/private repositories, commit activity, and language breakdown.",
+      name: "GitHub",
+      title: "GitHub Repositories & Commits",
+      desc: "Authenticate via GitHub OAuth to securely sync repositories, commit activity, stars, and language distribution.",
       icon: Github,
       isConnected: isGithubConnected,
       handle: githubUsername,
-      isOAuth: true,
-    },
-    {
-      key: 'codeforces',
-      name: "Codeforces Competitive Rating",
-      desc: isCfConnected 
-        ? `Connected as @${cfHandle}${cfProfile?.rating ? ` • Rating: ${cfProfile.rating} (${cfProfile.rank || 'Ranked'})` : ''}` 
-        : "Syncs contest rankings, rating progression, and contest submission history.",
-      icon: Award,
-      isConnected: isCfConnected,
-      handle: cfHandle,
-      isOAuth: false,
+      isOAuthOnly: true,
     },
     {
       key: 'leetcode',
-      name: "LeetCode Algorithm Activity",
-      desc: userData?.connectedSources?.leetcode 
-        ? `Connected as @${userData.connectedSources.leetcode}` 
-        : "Syncs problems solved, submission acceptance rates, and contest ranking.",
+      name: "LeetCode",
+      title: "LeetCode Algorithm Activity",
+      desc: "Syncs problem-solving activity, acceptance statistics, badges, and contest participation.",
       icon: Code,
-      isConnected: !!userData?.connectedSources?.leetcode,
-      handle: userData?.connectedSources?.leetcode || '',
-      isOAuth: false,
-    }
+      isConnected: isLcConnected,
+      handle: lcHandle,
+      placeholder: "e.g. neetcode or your_handle",
+      isOAuthOnly: false,
+    },
+    {
+      key: 'codeforces',
+      name: "Codeforces",
+      title: "Codeforces Competitive Rating",
+      desc: "Syncs competitive contest history, rating changes, global ranking, and submission milestones.",
+      icon: Award,
+      isConnected: isCfConnected,
+      handle: cfHandle,
+      placeholder: "e.g. tourist or your_handle",
+      isOAuthOnly: false,
+    },
   ];
 
   const notificationOptions = [
@@ -456,38 +354,38 @@ export default function Settings() {
     : 'Recent Member';
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-16 animate-fadeIn text-left">
+    <div className="max-w-7xl mx-auto space-y-8 pb-20 animate-fadeIn text-left">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#111827] tracking-tight">
+          <h1 className="text-[28px] font-bold text-[#111827] tracking-tight">
             Settings & Integrations
           </h1>
-          <p className="text-xs font-semibold text-[#6B7280] mt-1">
-            Manage your developer identity, platform connections, notifications, and security.
+          <p className="text-sm font-semibold text-[#6B7280] mt-1">
+            Manage your developer profile, connect external coding platforms, configure notifications, and manage security.
           </p>
         </div>
 
         <button
           onClick={handleExportData}
-          className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-[#E5E9F0] hover:bg-[#FAFBFC] text-xs font-bold text-[#374151] rounded-xl shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-[#E5E9F0] hover:bg-[#FAFBFC] text-xs font-bold text-[#374151] rounded-xl shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
         >
           <Download className="w-4 h-4 text-[#6B7280]" />
-          <span>Export Data</span>
+          <span>Export Profile Data</span>
         </button>
       </div>
 
       {/* Notice Banner */}
       {notice && (
-        <div className="p-4 rounded-2xl border bg-purple-50 border-purple-200 text-[#7C3AED] flex items-start justify-between gap-3">
+        <div className="p-4 sm:p-5 rounded-2xl border bg-purple-50 border-purple-200 text-[#7C3AED] flex items-start justify-between gap-3 shadow-xs">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-            <p className="text-xs font-bold">{notice.text}</p>
+            <p className="text-xs sm:text-sm font-bold leading-relaxed">{notice.text}</p>
           </div>
           <button
             onClick={() => setNotice(null)}
-            className="p-1 rounded-lg hover:bg-black/5 text-gray-500 cursor-pointer shrink-0"
+            className="p-1.5 rounded-lg hover:bg-black/5 text-gray-500 cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -495,17 +393,22 @@ export default function Settings() {
       )}
 
       {/* Section 1: Profile & Identity Overview */}
-      <div className="bg-white border border-[#E5E9F0] rounded-2xl p-6 shadow-xs space-y-5">
-        <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-4">
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-[#7C3AED]" />
-            <h2 className="text-sm font-bold text-[#111827]">Account & Profile</h2>
+      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-[#7C3AED] flex items-center justify-center">
+              <User className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-[#111827]">Account & Profile</h2>
+              <p className="text-xs text-[#6B7280] font-semibold">Your basic identity and account details</p>
+            </div>
           </div>
 
           {!isEditingProfile ? (
             <button
               onClick={() => setIsEditingProfile(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#F9FAFB] hover:bg-[#F3F4F6] text-[#374151] border border-[#E5E9F0] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#F9FAFB] hover:bg-[#F3F4F6] text-[#374151] border border-[#E5E9F0] transition-colors cursor-pointer"
             >
               <Edit2 className="w-3.5 h-3.5 text-[#6B7280]" />
               <span>Edit Profile</span>
@@ -513,7 +416,7 @@ export default function Settings() {
           ) : (
             <button
               onClick={() => setIsEditingProfile(false)}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#6B7280] hover:text-[#111827] cursor-pointer"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold text-[#6B7280] hover:text-[#111827] cursor-pointer"
             >
               Cancel
             </button>
@@ -521,51 +424,56 @@ export default function Settings() {
         </div>
 
         {!isEditingProfile ? (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
               {userData?.avatar ? (
                 <img
                   src={userData.avatar}
                   alt={userData?.name}
-                  className="w-14 h-14 rounded-2xl object-cover border-2 border-purple-100 shadow-sm"
+                  className="w-16 h-16 rounded-2xl object-cover border-2 border-purple-100 shadow-sm shrink-0"
                 />
               ) : (
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#7C3AED] to-[#6366F1] flex items-center justify-center text-white font-black text-xl shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#7C3AED] to-[#6366F1] flex items-center justify-center text-white font-black text-2xl shadow-sm shrink-0">
                   {userData?.name ? userData.name.charAt(0).toUpperCase() : 'U'}
                 </div>
               )}
 
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-[#111827]">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h3 className="text-lg font-bold text-[#111827]">
                     {userData?.name || 'Developer'}
                   </h3>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-purple-50 text-[#7C3AED] border border-purple-200">
-                    {userData?.role === 'admin' ? 'Admin' : 'Student'}
+                  <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider bg-purple-50 text-[#7C3AED] border border-purple-200">
+                    {userData?.role === 'admin' ? 'Admin' : 'Student Developer'}
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-[#6B7280]">
-                  <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-center gap-1.5">
                     <Mail className="w-3.5 h-3.5" />
                     {userData?.email || 'No email registered'}
                   </span>
                   <span>•</span>
-                  <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5" />
                     Joined {memberSince}
                   </span>
                 </div>
+                {userData?.bio && (
+                  <p className="text-xs text-[#4B5563] font-medium pt-1 max-w-xl">
+                    {userData.bio}
+                  </p>
+                )}
               </div>
             </div>
 
-            <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl px-4 py-2.5 text-center shrink-0">
+            <div className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl px-6 py-4 text-center shrink-0 self-start sm:self-auto">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] block">Readiness Score</span>
-              <span className="text-lg font-black text-[#7C3AED]">{userData?.readinessScore || 0}%</span>
+              <span className="text-2xl font-black text-[#7C3AED]">{userData?.readinessScore || 0}%</span>
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSaveProfile} className="space-y-4 pt-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-bold text-[#374151]">
+          <form onSubmit={handleSaveProfile} className="space-y-5 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs font-bold text-[#374151]">
               <div className="space-y-1.5">
                 <label>Full Name</label>
                 <input
@@ -573,7 +481,7 @@ export default function Settings() {
                   value={profileName}
                   onChange={(e) => setProfileName(e.target.value)}
                   placeholder="Your Name"
-                  className="w-full px-3.5 py-2 bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/10 focus:border-[#7C3AED]"
+                  className="w-full px-4 py-2.5 bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/15 focus:border-[#7C3AED]"
                   required
                 />
               </div>
@@ -584,7 +492,7 @@ export default function Settings() {
                   type="email"
                   disabled
                   value={userData?.email || ''}
-                  className="w-full px-3.5 py-2 bg-[#F3F4F6] border border-[#E5E9F0] rounded-xl font-semibold text-[#9CA3AF] cursor-not-allowed"
+                  className="w-full px-4 py-2.5 bg-[#F3F4F6] border border-[#E5E9F0] rounded-xl font-semibold text-[#9CA3AF] cursor-not-allowed"
                 />
               </div>
 
@@ -594,13 +502,13 @@ export default function Settings() {
                   type="text"
                   value={profileBio}
                   onChange={(e) => setProfileBio(e.target.value)}
-                  placeholder="e.g. Full-Stack Developer & Competitive Programmer"
-                  className="w-full px-3.5 py-2 bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/10 focus:border-[#7C3AED]"
+                  placeholder="e.g. Full-Stack Engineer & Competitive Programmer"
+                  className="w-full px-4 py-2.5 bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/15 focus:border-[#7C3AED]"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={() => setIsEditingProfile(false)}
@@ -611,186 +519,195 @@ export default function Settings() {
               <button
                 type="submit"
                 disabled={profileLoading}
-                className="px-4 py-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                className="px-5 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
               >
                 {profileLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                <span>Save Changes</span>
+                <span>Save Profile Changes</span>
               </button>
             </div>
           </form>
         )}
       </div>
 
-      {/* Section 2: Platform Integrations */}
-      <div className="bg-white border border-[#E5E9F0] rounded-2xl p-6 shadow-xs space-y-5">
-        <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-4">
-          <div className="flex items-center gap-2">
-            <Sliders className="w-4 h-4 text-[#7C3AED]" />
-            <h2 className="text-sm font-bold text-[#111827]">
-              Platform Integrations & External Sources
-            </h2>
+      {/* Section 2: Platform Integrations & External Sources (Spacious & Clean) */}
+      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-[#7C3AED] flex items-center justify-center">
+              <Sliders className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-[#111827]">
+                Platform Integrations & External Sources
+              </h2>
+              <p className="text-xs text-[#6B7280] font-semibold">
+                Link your accounts to automatically synchronize your verified coding metrics and repositories
+              </p>
+            </div>
           </div>
-          <span className="text-[11px] font-bold text-[#6B7280]">
+          <span className="text-xs font-bold px-3 py-1 bg-purple-50 text-[#7C3AED] border border-purple-100 rounded-xl">
             {platforms.filter(p => p.isConnected).length} of {platforms.length} Connected
           </span>
         </div>
 
-        <div className="divide-y divide-[#F3F4F6]">
+        <div className="grid grid-cols-1 gap-5">
           {platforms.map((plat) => {
             const Icon = plat.icon;
             const isEditing = editingPlatform === plat.key;
+            const isSyncing = syncingPlatform === plat.key;
 
             return (
-              <div key={plat.key} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 first:pt-0 last:pb-0">
-                <div className="flex items-start gap-3.5">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                    plat.isConnected ? 'bg-purple-50 text-[#7C3AED]' : 'bg-gray-100 text-gray-500'
+              <div
+                key={plat.key}
+                className="p-5 sm:p-6 rounded-2xl border border-[#E5E9F0] bg-white hover:border-[#CBD5E1] transition-all flex flex-col md:flex-row md:items-center justify-between gap-5 text-left shadow-2xs"
+              >
+                {/* Left: Platform Icon & Info */}
+                <div className="flex items-start gap-4 min-w-0 flex-1">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs ${
+                    plat.isConnected ? 'bg-[#111827] text-white' : 'bg-gray-100 text-gray-500'
                   }`}>
-                    <Icon className="w-4.5 h-4.5" />
+                    <Icon className="w-6 h-6" />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-xs font-bold text-[#111827]">{plat.name}</h3>
-                      {plat.isConnected && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <Check className="w-2.5 h-2.5" />
+
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h3 className="text-sm sm:text-base font-bold text-[#111827]">{plat.title}</h3>
+                      {plat.isConnected ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <Check className="w-3 h-3" />
                           Connected
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200">
+                          Not Connected
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-[#6B7280] font-semibold mt-0.5">{plat.desc}</p>
                     
-                    {/* Rich Codeforces Stats Row */}
-                    {plat.key === 'codeforces' && isCfConnected && cfProfile && (
-                      <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] font-bold">
-                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md border border-blue-100">
-                          Rating: {cfProfile.rating || 'Unrated'}
-                        </span>
-                        <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded-md border border-purple-100">
-                          Max: {cfProfile.maxRating || 'Unrated'}
-                        </span>
-                        <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-md border border-amber-100 capitalize">
-                          Rank: {cfProfile.rank || 'Unrated'}
-                        </span>
-                        <span className="text-gray-400 font-normal">
-                          {cfProfile.contestCount || 0} contests • {cfProfile.solvedCount || 0} solved
-                        </span>
-                      </div>
-                    )}
+                    <p className="text-xs text-[#6B7280] font-semibold leading-relaxed">
+                      {plat.desc}
+                    </p>
 
-                    {/* Rich LeetCode Stats Row */}
-                    {plat.key === 'leetcode' && isLcConnected && lcProfile && (
-                      <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] font-bold">
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md border border-emerald-100">
-                          Total Solved: {lcProfile.totalSolved || 0}
+                    {/* Connected Handle Pill (No stats/numbers shown) */}
+                    {plat.isConnected && (
+                      <div className="pt-1.5 flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-[#111827]">
+                          <span className="text-[#7C3AED]">@</span>
+                          {plat.handle}
                         </span>
-                        <span className="px-2 py-0.5 bg-green-50 text-green-700 rounded-md border border-green-100">
-                          Easy: {lcProfile.easySolved || 0}
-                        </span>
-                        <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-md border border-amber-100">
-                          Med: {lcProfile.mediumSolved || 0}
-                        </span>
-                        <span className="px-2 py-0.5 bg-red-50 text-red-700 rounded-md border border-red-100">
-                          Hard: {lcProfile.hardSolved || 0}
-                        </span>
-                        {lcProfile.ranking && (
-                          <span className="text-gray-400 font-normal">
-                            Rank #{lcProfile.ranking.toLocaleString()}
-                          </span>
-                        )}
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                  {/* GitHub Specific Actions */}
-                  {plat.isOAuth ? (
+                {/* Right: Actions / Form Field */}
+                <div className="flex items-center gap-2.5 shrink-0 self-start md:self-center w-full md:w-auto">
+                  {plat.isOAuthOnly ? (
                     plat.isConnected ? (
-                      <>
-                        <button 
-                          onClick={() => setShowRepoPicker(true)}
-                          className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-purple-50 text-[#7C3AED] border border-purple-200 hover:bg-purple-100 transition-all cursor-pointer inline-flex items-center gap-1.5"
+                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full md:w-auto">
+                        <button
+                          onClick={() => handleSyncPlatform('github', plat.handle)}
+                          disabled={isSyncing}
+                          className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#F9FAFB] hover:bg-[#F3F4F6] text-[#374151] border border-[#E5E9F0] transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                          title="Re-sync repositories and activity"
                         >
-                          <Github className="w-3.5 h-3.5" />
-                          <span>Manage Repositories</span>
+                          <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-[#7C3AED]' : 'text-gray-500'}`} />
+                          <span>Sync Repos</span>
                         </button>
-                        <button 
-                          onClick={handleGithubAction}
-                          className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-gray-50 text-red-600 border border-gray-200 hover:bg-red-50 transition-all cursor-pointer"
+
+                        <button
+                          onClick={() => handleDisconnectPlatform('github')}
+                          className="px-3.5 py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 border border-red-100 cursor-pointer transition-colors"
                         >
                           Disconnect
                         </button>
-                      </>
+                      </div>
                     ) : (
-                      <button 
-                        onClick={handleGithubAction}
-                        className="px-3.5 py-1.5 rounded-lg text-[11px] font-bold bg-[#111827] text-white hover:bg-[#1F2937] transition-all cursor-pointer inline-flex items-center gap-1.5"
+                      <button
+                        onClick={handleGithubOAuthAction}
+                        className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-2xs transition-all cursor-pointer inline-flex items-center justify-center gap-2"
                       >
-                        <Github className="w-3.5 h-3.5" />
+                        <Github className="w-4 h-4" />
                         <span>Connect GitHub</span>
                       </button>
                     )
-                  ) : (
-                    /* Handle-based Platforms (Codeforces, LeetCode) */
-                    isEditing ? (
-                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                        <div className="relative flex-1 sm:flex-none">
-                          <span className="absolute left-3 top-2 text-xs font-bold text-gray-400">@</span>
-                          <input
-                            type="text"
-                            value={platformInput}
-                            onChange={(e) => setPlatformInput(e.target.value)}
-                            placeholder={plat.key === 'codeforces' ? 'Codeforces handle' : 'LeetCode handle'}
-                            className="bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl pl-7 pr-3 py-2 text-xs font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/10 focus:border-[#7C3AED] w-48 sm:w-56 transition-all"
-                            autoFocus
-                          />
-                        </div>
+                  ) : isEditing ? (
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
+                      <div className="relative w-full sm:w-64">
+                        <span className="absolute left-3.5 top-2.5 text-xs font-bold text-gray-400">@</span>
+                        <input
+                          type="text"
+                          value={platformInput}
+                          onChange={(e) => setPlatformInput(e.target.value)}
+                          placeholder={plat.placeholder}
+                          className="w-full bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl pl-8 pr-3.5 py-2.5 text-xs font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/15 focus:border-[#7C3AED] transition-all"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSavePlatformHandle(plat.key);
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleSavePlatformHandle(plat.key)}
                           disabled={platformSaving || !platformInput.trim()}
-                          className="px-4 py-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5 shadow-2xs shrink-0"
+                          className="flex-1 sm:flex-none px-4 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-white rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50 inline-flex items-center justify-center gap-1.5 shadow-2xs shrink-0"
                         >
                           {platformSaving ? (
                             <>
                               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              <span>Connecting...</span>
+                              <span>Saving...</span>
                             </>
                           ) : (
-                            <span>Connect</span>
+                            <span>Save Handle</span>
                           )}
                         </button>
                         <button
                           onClick={() => { setEditingPlatform(null); setPlatformInput(''); }}
-                          className="p-2 border border-[#E5E9F0] hover:border-gray-300 text-gray-400 hover:text-gray-600 rounded-xl transition-colors cursor-pointer shrink-0"
+                          className="p-2.5 border border-[#E5E9F0] hover:border-gray-300 text-gray-400 hover:text-gray-600 rounded-xl transition-colors cursor-pointer shrink-0"
                           title="Cancel"
                         >
                           <X className="w-4 h-4" />
                         </button>
                       </div>
-                    ) : plat.isConnected ? (
-                      <>
-                        <button
-                          onClick={() => { setEditingPlatform(plat.key); setPlatformInput(plat.handle); }}
-                          className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-gray-50 text-[#374151] border border-gray-200 hover:bg-gray-100 cursor-pointer"
-                        >
-                          Edit Handle
-                        </button>
-                        <button
-                          onClick={() => handleDisconnectPlatform(plat.key)}
-                          className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-red-600 hover:bg-red-50 border border-gray-200 cursor-pointer"
-                        >
-                          Disconnect
-                        </button>
-                      </>
-                    ) : (
+                    </div>
+                  ) : plat.isConnected ? (
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full md:w-auto">
+                      <button
+                        onClick={() => handleSyncPlatform(plat.key, plat.handle)}
+                        disabled={isSyncing}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#F9FAFB] hover:bg-[#F3F4F6] text-[#374151] border border-[#E5E9F0] transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                        title="Re-sync data from platform"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-[#7C3AED]' : 'text-gray-500'}`} />
+                        <span>Sync</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setEditingPlatform(plat.key); setPlatformInput(plat.handle); }}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-[#374151] border border-gray-200 hover:bg-gray-50 cursor-pointer"
+                      >
+                        Edit Handle
+                      </button>
+
+                      <button
+                        onClick={() => handleDisconnectPlatform(plat.key)}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 border border-red-100 cursor-pointer transition-colors"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap w-full md:w-auto">
                       <button
                         onClick={() => { setEditingPlatform(plat.key); setPlatformInput(''); }}
-                        className="px-3.5 py-1.5 rounded-lg text-[11px] font-bold bg-[#F9FAFB] text-[#374151] border border-[#E5E9F0] hover:bg-[#F3F4F6] transition-all cursor-pointer"
+                        className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-2xs transition-all cursor-pointer inline-flex items-center justify-center gap-1.5"
                       >
-                        {plat.key === 'codeforces' ? 'Connect Codeforces' : 'Connect Handle'}
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>Connect Handle</span>
                       </button>
-                    )
+                    </div>
                   )}
                 </div>
               </div>
@@ -800,31 +717,36 @@ export default function Settings() {
       </div>
 
       {/* Section 3: Notification Preferences */}
-      <div className="bg-white border border-[#E5E9F0] rounded-2xl p-6 shadow-xs space-y-5">
-        <div className="flex items-center gap-2 border-b border-[#F3F4F6] pb-4">
-          <Bell className="w-4 h-4 text-[#7C3AED]" />
-          <h2 className="text-sm font-bold text-[#111827]">
-            Notification Preferences & Alerts
-          </h2>
+      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="flex items-center gap-2.5 border-b border-[#F3F4F6] pb-5">
+          <div className="w-8 h-8 rounded-xl bg-purple-50 text-[#7C3AED] flex items-center justify-center">
+            <Bell className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-[#111827]">
+              Notification Preferences & Alerts
+            </h2>
+            <p className="text-xs text-[#6B7280] font-semibold">Choose how and when CareerOS sends you updates</p>
+          </div>
         </div>
 
         <div className="divide-y divide-[#F3F4F6]">
           {notificationOptions.map((opt) => {
             const isActive = !!notifications[opt.key];
             return (
-              <div key={opt.key} className="py-3.5 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
+              <div key={opt.key} className="py-4 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
                 <div>
-                  <h3 className="text-xs font-bold text-[#111827]">{opt.name}</h3>
-                  <p className="text-[11px] text-[#6B7280] font-semibold">{opt.desc}</p>
+                  <h3 className="text-xs sm:text-sm font-bold text-[#111827]">{opt.name}</h3>
+                  <p className="text-xs text-[#6B7280] font-semibold mt-0.5">{opt.desc}</p>
                 </div>
 
                 <button 
                   onClick={() => toggleNotification(opt.key)}
-                  className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer focus:outline-none shrink-0 ${
+                  className={`w-10 h-6 rounded-full p-0.5 transition-colors cursor-pointer focus:outline-none shrink-0 ${
                     isActive ? 'bg-[#7C3AED]' : 'bg-[#E5E9F0]'
                   }`}
                 >
-                  <div className={`w-4 h-4 bg-white rounded-full transition-transform shadow-xs ${
+                  <div className={`w-5 h-5 bg-white rounded-full transition-transform shadow-xs ${
                     isActive ? 'translate-x-4' : 'translate-x-0'
                   }`} />
                 </button>
@@ -835,24 +757,29 @@ export default function Settings() {
       </div>
 
       {/* Section 4: Password & Security */}
-      <div className="bg-white border border-[#E5E9F0] rounded-2xl p-6 shadow-xs space-y-5">
-        <div className="flex items-center gap-2 border-b border-[#F3F4F6] pb-4">
-          <ShieldCheck className="w-4 h-4 text-[#7C3AED]" />
-          <h2 className="text-sm font-bold text-[#111827]">
-            Account Security & Password
-          </h2>
+      <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="flex items-center gap-2.5 border-b border-[#F3F4F6] pb-5">
+          <div className="w-8 h-8 rounded-xl bg-purple-50 text-[#7C3AED] flex items-center justify-center">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-[#111827]">
+              Account Security & Password
+            </h2>
+            <p className="text-xs text-[#6B7280] font-semibold">Keep your account secure with regular password updates</p>
+          </div>
         </div>
 
         {passMessage && (
-          <div className={`p-3.5 rounded-xl text-xs font-bold border ${
+          <div className={`p-4 rounded-2xl text-xs font-bold border ${
             passMessage.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-red-50 border-red-100 text-red-700'
           }`}>
             {passMessage.text}
           </div>
         )}
 
-        <form onSubmit={handlePasswordChange} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-bold text-[#374151]">
+        <form onSubmit={handlePasswordChange} className="space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 text-xs font-bold text-[#374151]">
             <div className="space-y-1.5">
               <label>Current Password</label>
               <input 
@@ -860,7 +787,7 @@ export default function Settings() {
                 value={passwordFields.oldPassword}
                 onChange={(e) => setPasswordFields({ ...passwordFields, oldPassword: e.target.value })}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/10 focus:border-[#7C3AED]"
+                className="w-full px-4 py-2.5 bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/15 focus:border-[#7C3AED]"
                 required
               />
             </div>
@@ -872,7 +799,7 @@ export default function Settings() {
                 value={passwordFields.newPassword}
                 onChange={(e) => setPasswordFields({ ...passwordFields, newPassword: e.target.value })}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/10 focus:border-[#7C3AED]"
+                className="w-full px-4 py-2.5 bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/15 focus:border-[#7C3AED]"
                 required
               />
             </div>
@@ -884,7 +811,7 @@ export default function Settings() {
                 value={passwordFields.confirmPassword}
                 onChange={(e) => setPasswordFields({ ...passwordFields, confirmPassword: e.target.value })}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/10 focus:border-[#7C3AED]"
+                className="w-full px-4 py-2.5 bg-[#FAFBFC] border border-[#E5E9F0] rounded-xl font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/15 focus:border-[#7C3AED]"
                 required
               />
             </div>
@@ -894,7 +821,7 @@ export default function Settings() {
             <button 
               type="submit"
               disabled={passLoading}
-              className="px-4 py-2 bg-[#111827] hover:bg-[#1F2937] text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              className="px-5 py-2.5 bg-[#111827] hover:bg-[#1F2937] text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
             >
               {passLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
               <span>Update Password</span>
@@ -912,18 +839,16 @@ export default function Settings() {
         }}
       />
 
-      {/* Custom In-App Confirmation Dialog Card */}
+      {/* Confirmation Dialog */}
       {confirmDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop with premium blur */}
           <div 
             className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
             onClick={() => setConfirmDialog(null)}
           />
           
-          {/* Confirm Dialog Card */}
-          <div className="relative bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-2xl max-w-sm w-full z-10 text-center space-y-4 animate-fadeIn">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto">
+          <div className="relative bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-7 shadow-2xl max-w-sm w-full z-10 text-center space-y-4 animate-fadeIn">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto">
               <AlertCircle className="w-6 h-6" />
             </div>
             
