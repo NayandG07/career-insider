@@ -2,11 +2,9 @@ import time
 import logging
 import asyncio
 from typing import Dict, Any, List, Optional
-from concurrent.futures import ThreadPoolExecutor
-
+import httpx
 from google import genai as google_genai
 from openai import AsyncOpenAI
-from huggingface_hub import InferenceClient
 from pydantic import BaseModel
 
 from utils.db import get_db
@@ -14,8 +12,6 @@ from utils.encryption import decrypt_api_key
 
 logger = logging.getLogger(__name__)
 
-# Thread pool for running sync HuggingFace calls
-_hf_executor = ThreadPoolExecutor(max_workers=4)
 
 class LLMConfig(BaseModel):
     primaryProvider: str
@@ -98,27 +94,57 @@ class LLMManager:
 
     async def _invoke_huggingface(self, model_name: str, prompt: str, api_key: str) -> str:
         """
-        HuggingFace Hub Inference — uses provider=None so HF auto-routes to the
-        best available provider for this account tier (free accounts get routed
-        through whichever third-party provider supports the model).
+        Hugging Face Router API (OpenAI-compatible) via async httpx.
+        Supports standard models and explicit model:provider syntax.
+        Includes 503 cold-start handling with automatic 15s retry and HTML error sanitization.
         """
         hf_model = (model_name.strip()
                     if model_name and model_name.strip()
                     else "Qwen/Qwen2.5-72B-Instruct")
 
-        def _run():
-            # provider=None lets HF Hub auto-pick the available provider
-            client = InferenceClient(token=api_key)
-            response = client.chat_completion(
-                model=hf_model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=2048,
-                temperature=0.7,
-            )
-            return response.choices[0].message.content or ""
+        url = "https://router.huggingface.co/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": hf_model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 2048,
+            "temperature": 0.7,
+            "stream": False
+        }
 
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(_hf_executor, _run)
+        timeout_seconds = 90.0
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            response = await client.post(url, headers=headers, json=payload)
+
+            # Handle 503 Cold Start (model spinning up)
+            if response.status_code == 503:
+                logger.warning(
+                    f"503 received for {hf_model} — model is cold-starting on HuggingFace router. Waiting 15s before retry..."
+                )
+                await asyncio.sleep(15)
+                logger.info(f"Retrying {hf_model} after 503 cold-start wait...")
+                response = await client.post(url, headers=headers, json=payload)
+
+            if response.status_code == 200:
+                result = response.json()
+                if "choices" in result and len(result["choices"]) > 0:
+                    content = result["choices"][0]["message"]["content"]
+                    if content is not None:
+                        return content.strip()
+                raise RuntimeError(f"HuggingFace router returned empty choices: {result}")
+
+            # Error sanitization
+            error_text = response.text
+            if error_text.startswith("<!DOCTYPE") or error_text.startswith("<html"):
+                error_msg = f"Hugging Face Router API error: {response.status_code} Gateway Timeout / Error"
+            else:
+                error_msg = f"Hugging Face Router API error ({response.status_code}): {error_text[:200]}"
+
+            raise RuntimeError(error_msg)
+
 
 
     async def _try_provider(self, provider: str, model_name: str, prompt: str) -> Optional[str]:
