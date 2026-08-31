@@ -7,6 +7,11 @@ export const githubService = {
     return { data: ghData };
   },
 
+  getContributions: async (year) => {
+    const res = await api.get(`/github/contributions?year=${year}`);
+    return res.data;
+  },
+
   sync: async () => {
     const res = await api.get('/telemetry');
     return res.data;

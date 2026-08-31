@@ -13,7 +13,7 @@
   }
 
   body {
-    @apply bg-[#F6F8FC] text-[#111827] font-sans antialiased selection:bg-purple-100 selection:text-purple-600;
+    @apply bg-[#F4F6FB] text-[#111827] font-sans antialiased selection:bg-purple-100 selection:text-purple-600;
     margin: 0;
     width: 100%;
   }

@@ -162,8 +162,69 @@ export default function CompanyMatches() {
         </div>
       </div>
 
+      {/* Active AI Analysis Banner when analyzing */}
+      {isLoading && (
+        <div className="p-4 bg-purple-50/90 border border-purple-200/90 rounded-3xl flex items-center justify-between gap-3 shadow-2xs animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-2xl bg-purple-100 flex items-center justify-center text-[#7C3AED] shrink-0">
+              <Sparkles className="w-4 h-4 animate-spin" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-[#7C3AED]">AI Match Intelligence Active</h4>
+              <p className="text-[11px] font-medium text-purple-700">Evaluating verified problem solving, repositories, and technical skills against real company requirements…</p>
+            </div>
+          </div>
+          <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 bg-white/90 rounded-lg text-[#7C3AED] border border-purple-200 shrink-0">
+            Matching
+          </span>
+        </div>
+      )}
+
+      {/* Loading Skeleton */}
+      {isLoading && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Left Column Skeleton Cards */}
+          <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-5 h-fit">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-xs flex flex-col justify-between h-[160px] animate-pulse space-y-3">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-gray-200" />
+                    <div className="space-y-1">
+                      <div className="h-4 w-24 bg-gray-200 rounded" />
+                      <div className="h-2.5 w-32 bg-gray-100 rounded" />
+                    </div>
+                  </div>
+                  <div className="h-6 w-12 bg-gray-200 rounded-full" />
+                </div>
+                <div className="flex gap-1.5 pt-2">
+                  <div className="h-5 w-16 bg-gray-100 rounded-md" />
+                  <div className="h-5 w-20 bg-gray-100 rounded-md" />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Right Column Skeleton Inspector */}
+          <div className="lg:col-span-5 bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-sm animate-pulse space-y-5">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gray-200" />
+              <div className="space-y-2 flex-1">
+                <div className="h-5 w-36 bg-gray-200 rounded" />
+                <div className="h-3 w-48 bg-gray-100 rounded" />
+              </div>
+            </div>
+            <div className="space-y-3 pt-3 border-t border-gray-100">
+              <div className="h-4 w-28 bg-gray-200 rounded" />
+              <div className="h-16 w-full bg-gray-100 rounded-2xl" />
+              <div className="h-16 w-full bg-gray-100 rounded-2xl" />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Empty State — shown when no analysis has been run yet */}
-      {!hasData && (
+      {!hasData && !isLoading && (
         <div className="bg-white border border-dashed border-[#E5E9F0] rounded-3xl p-16 text-center space-y-5 shadow-sm">
           <div className="w-16 h-16 bg-[#EEF2FF] rounded-full flex items-center justify-center mx-auto text-[#6366F1]">
             <Briefcase className="w-8 h-8" />
@@ -179,16 +240,14 @@ export default function CompanyMatches() {
             disabled={isLoading}
             className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
           >
-            {isLoading
-              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Analyzing…</>
-              : <><Sparkles className="w-3.5 h-3.5" /> Run Company Match Analysis</>
-            }
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Run Company Match Analysis</span>
           </button>
         </div>
       )}
 
       {/* Layout Columns — only shown when real data exists */}
-      {hasData && (
+      {hasData && !isLoading && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* Left Column: Company Match Cards Grid */}

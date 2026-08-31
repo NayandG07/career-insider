@@ -889,11 +889,35 @@ export default function Projects({ setActivePage }) {
           </div>
         )}
 
-        {/* Loading State */}
+        {/* Loading State Skeleton */}
         {loading && (
-          <div className="flex flex-col items-center justify-center py-20 space-y-2">
-            <Loader2 className="w-7 h-7 text-[#7C3AED] animate-spin" />
-            <p className="text-xs font-semibold text-[#6B7280]">Loading project showcase…</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col justify-between space-y-4 animate-pulse">
+                <div className="space-y-3.5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-gray-200 shrink-0" />
+                    <div className="space-y-1.5 flex-1">
+                      <div className="h-5 w-44 bg-gray-200 rounded-lg" />
+                      <div className="h-4 w-24 bg-gray-100 rounded-md" />
+                    </div>
+                  </div>
+                  <div className="space-y-2 pt-2">
+                    <div className="h-3.5 w-full bg-gray-100 rounded" />
+                    <div className="h-3.5 w-4/5 bg-gray-100 rounded" />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 pt-3">
+                    <div className="h-5 w-16 bg-gray-200 rounded-md" />
+                    <div className="h-5 w-20 bg-gray-200 rounded-md" />
+                    <div className="h-5 w-14 bg-gray-200 rounded-md" />
+                  </div>
+                </div>
+                <div className="pt-3 border-t border-gray-100 flex justify-between items-center">
+                  <div className="h-4 w-24 bg-gray-200 rounded" />
+                  <div className="h-4 w-16 bg-gray-200 rounded" />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

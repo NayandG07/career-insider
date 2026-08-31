@@ -2,13 +2,12 @@ import React from 'react';
 import { 
   CheckCircle2, 
   Circle, 
-  ExternalLink, 
   Code, 
   Terminal, 
   FolderGit2, 
+  Github,
   ArrowRight,
   Sparkles,
-  AlertTriangle,
   Compass,
   Layers
 } from 'lucide-react';
@@ -20,9 +19,19 @@ export default function ReadinessGate({
   readiness = {},
   setActivePage,
 }) {
-  const { leetcode = false, codeforces = false, hasProject = false } = readiness;
+  const { github = false, leetcode = false, codeforces = false, hasProject = false } = readiness;
 
   const requirements = [
+    {
+      id: 'github',
+      title: 'GitHub Account',
+      description: 'Connect GitHub to index repositories, commit history, and code contributions.',
+      met: github,
+      icon: Github,
+      iconBg: 'bg-purple-50 text-[#7C3AED] border-purple-200/60',
+      actionLabel: 'Connect in Settings',
+      page: 'settings',
+    },
     {
       id: 'leetcode',
       title: 'LeetCode Account',
@@ -56,7 +65,7 @@ export default function ReadinessGate({
   ];
 
   const metCount = requirements.filter(r => r.met).length;
-  const progressPercent = Math.round((metCount / requirements.length) * 100);
+  const isUnlocked = metCount > 0;
 
   const DynamicDecorationIcon = featureName === 'Skill Intelligence' ? Layers : Compass;
 
@@ -66,7 +75,7 @@ export default function ReadinessGate({
       <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-8 shadow-xs relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-purple-500/5 to-transparent rounded-full -mr-20 -mt-20 pointer-events-none" />
         
-        {/* Large Decorative Page Icon (Right side background decoration) */}
+        {/* Large Decorative Page Icon */}
         <div className="absolute right-6 top-6 sm:right-8 sm:top-8 text-[#7C3AED]/[0.07] pointer-events-none hidden sm:block">
           <DynamicDecorationIcon className="w-20 h-20 stroke-[1.25]" />
         </div>
@@ -78,23 +87,25 @@ export default function ReadinessGate({
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-black text-[#111827] tracking-tight">
-            Connect Your Accounts to Unlock {featureName}
+            Connect Any Account to Unlock {featureName}
           </h2>
 
           <p className="text-sm text-[#4B5563] font-medium leading-relaxed">
-            {description}
+            {description} Connect at least one developer profile (GitHub, LeetCode, or Codeforces) or add a showcase project to proceed.
           </p>
 
           {/* Progress Indicator */}
           <div className="pt-2 space-y-2">
             <div className="flex items-center justify-between text-xs font-bold text-[#374151]">
-              <span>Setup Progress</span>
-              <span className="text-[#7C3AED]">{metCount} of {requirements.length} Steps Completed ({progressPercent}%)</span>
+              <span>Setup Status</span>
+              <span className={isUnlocked ? "text-emerald-600" : "text-[#7C3AED]"}>
+                {isUnlocked ? 'Unlocked (At least 1 connected)' : '0 of 1 Required Step Completed'}
+              </span>
             </div>
             <div className="w-full bg-[#F3F4F6] h-2.5 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-gradient-to-r from-[#7C3AED] to-[#6366F1] rounded-full transition-all duration-500" 
-                style={{ width: `${progressPercent}%` }}
+                style={{ width: `${isUnlocked ? 100 : 0}%` }}
               />
             </div>
           </div>
@@ -102,7 +113,7 @@ export default function ReadinessGate({
       </div>
 
       {/* Requirements Checklist Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {requirements.map((req, idx) => {
           const Icon = req.icon;
           return (
@@ -130,7 +141,7 @@ export default function ReadinessGate({
                   ) : (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-500 text-[11px] font-bold">
                       <Circle className="w-3.5 h-3.5" />
-                      Required
+                      Available
                     </span>
                   )}
                 </div>
@@ -159,12 +170,12 @@ export default function ReadinessGate({
       </div>
 
       {/* Complete Profile Action Bar */}
-      {metCount < requirements.length && setActivePage && (
+      {!isUnlocked && setActivePage && (
         <div className="bg-[#111827] text-white rounded-3xl p-6 sm:p-7 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md">
           <div className="space-y-1 text-center sm:text-left">
             <h4 className="text-base font-bold text-white">Ready to activate {featureName}?</h4>
             <p className="text-xs text-slate-300 font-medium">
-              Link your developer profiles and showcase your projects in settings to unlock verified AI analysis.
+              Link any developer profile (GitHub, LeetCode, Codeforces) or add a showcase project to unlock verified AI analysis.
             </p>
           </div>
           <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
