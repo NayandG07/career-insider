@@ -127,10 +127,13 @@ export default function SkillIntelligence({ setActivePage }) {
         featureName="Skill Intelligence" 
         readiness={readiness} 
         setActivePage={setActivePage} 
-        description="Connect your LeetCode, Codeforces, and add at least one project to build your capability profile and analyze your technical skills."
+        description="Connect at least one developer profile (GitHub, LeetCode, Codeforces) or add a showcase project to build your capability profile and analyze your technical skills."
       />
     );
   }
+
+  // Loading / AI Analysis in Progress Skeleton State
+  const isSkeletonActive = loading || (!hasInitialized && !skills);
 
   return (
     <div className="space-y-6 pb-16 animate-fadeIn text-left">
@@ -167,9 +170,84 @@ export default function SkillIntelligence({ setActivePage }) {
         </div>
       )}
 
+      {/* Active AI Analysis Banner when analyzing */}
+      {loading && (
+        <div className="p-4 bg-purple-50/90 border border-purple-200/90 rounded-3xl flex items-center justify-between gap-3 shadow-2xs animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-2xl bg-purple-100 flex items-center justify-center text-[#7C3AED] shrink-0">
+              <Layers className="w-4 h-4 animate-pulse" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-[#7C3AED]">AI Skill Intelligence Engine Active</h4>
+              <p className="text-[11px] font-medium text-purple-700">Synthesizing code patterns, commits, algorithm submissions, and architecture evidence…</p>
+            </div>
+          </div>
+          <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 bg-white/90 rounded-lg text-[#7C3AED] border border-purple-200 shrink-0">
+            Analyzing
+          </span>
+        </div>
+      )}
 
+      {isSkeletonActive ? (
+        <div className="space-y-6">
+          {/* Skeleton KPI Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-xs space-y-3 animate-pulse">
+                <div className="flex justify-between items-center">
+                  <div className="h-3 w-20 bg-gray-200 rounded" />
+                  <div className="w-4 h-4 bg-gray-200 rounded-full" />
+                </div>
+                <div className="h-7 w-28 bg-gray-200 rounded-lg" />
+                <div className="h-2.5 w-24 bg-gray-100 rounded" />
+              </div>
+            ))}
+          </div>
 
-      {/* 3. Summary KPI Cards */}
+          {/* Skeleton Category Capabilities */}
+          <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
+            <div className="flex justify-between items-center border-b border-[#F3F4F6] pb-4">
+              <div className="h-5 w-48 bg-gray-200 rounded-lg animate-pulse" />
+              <div className="h-4 w-32 bg-gray-100 rounded animate-pulse" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="p-4 bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl space-y-3 animate-pulse">
+                  <div className="flex justify-between items-center">
+                    <div className="h-4 w-28 bg-gray-200 rounded" />
+                    <div className="h-4 w-12 bg-gray-200 rounded-full" />
+                  </div>
+                  <div className="h-2 w-full bg-gray-200 rounded-full" />
+                  <div className="flex gap-1.5 pt-1">
+                    <div className="h-5 w-16 bg-gray-200 rounded-md" />
+                    <div className="h-5 w-14 bg-gray-200 rounded-md" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Skeleton Skill Registry */}
+          <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-7 shadow-xs space-y-4">
+            <div className="h-5 w-44 bg-gray-200 rounded-lg animate-pulse" />
+            <div className="space-y-3 pt-2">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="p-4 bg-[#FAFBFC] border border-[#E5E9F0] rounded-2xl flex items-center justify-between gap-4 animate-pulse">
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="w-8 h-8 rounded-xl bg-gray-200 shrink-0" />
+                    <div className="space-y-1.5 flex-1">
+                      <div className="h-4 w-36 bg-gray-200 rounded" />
+                      <div className="h-3 w-56 bg-gray-100 rounded" />
+                    </div>
+                  </div>
+                  <div className="h-6 w-20 bg-gray-200 rounded-lg" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-[#E5E9F0] rounded-3xl p-5 shadow-xs space-y-1">
           <div className="flex items-center justify-between">
@@ -467,6 +545,8 @@ export default function SkillIntelligence({ setActivePage }) {
         )}
 
       </div>
+      </>
+      )}
 
     </div>
   );

@@ -293,7 +293,7 @@ export default function AIMentor() {
   };
 
   return (
-    <div className="h-[calc(100vh-112px)] flex flex-col justify-between max-w-4xl mx-auto space-y-4 animate-fadeIn text-left relative">
+    <div className="h-full max-h-full flex-1 flex flex-col justify-between max-w-4xl w-full mx-auto space-y-3 animate-fadeIn text-left relative overflow-hidden min-h-0">
 
       {/* ─── Rightmost Vertically Centered Quick Action Menu ───────────── */}
       <div className="fixed right-4 sm:right-6 top-1/2 -translate-y-1/2 z-40 flex items-center gap-3" ref={quickActionsRef}>
@@ -376,19 +376,17 @@ export default function AIMentor() {
           )}
         </AnimatePresence>
 
-        {/* Collapsed Trigger Button (On the right) */}
-        <motion.button
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.92 }}
+        {/* Action Trigger Button (On the right) */}
+        <button
           onClick={() => setShowQuickActions((prev) => !prev)}
           className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-lg shadow-purple-500/10 border shrink-0 ${showQuickActions
               ? 'bg-[#7C3AED] text-white border-[#7C3AED] ring-4 ring-purple-100'
-              : 'bg-white text-[#7C3AED] border-[#E5E9F0] hover:border-purple-300 hover:bg-purple-50/50'
+              : 'bg-white text-[#7C3AED] border-[#E5E9F0] hover:border-purple-300 hover:bg-purple-50/50 active:scale-95'
             }`}
           title="Quick Actions Menu"
         >
           <SlidersHorizontal className="w-5 h-5 pointer-events-none" />
-        </motion.button>
+        </button>
 
       </div>
 

@@ -338,6 +338,52 @@ export default function Settings() {
     ? new Date(userData.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     : 'Recent Member';
 
+  // Loading Skeleton State before userData is ready
+  if (!userData) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-8 pb-20 animate-fadeIn text-left">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-7 w-56 bg-gray-200 rounded-lg animate-pulse" />
+            <div className="h-4 w-96 bg-gray-100 rounded-md animate-pulse" />
+          </div>
+          <div className="h-10 w-36 bg-gray-200 rounded-xl animate-pulse" />
+        </div>
+
+        {/* Profile Card Skeleton */}
+        <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 animate-pulse">
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 rounded-2xl bg-gray-200 shrink-0" />
+            <div className="space-y-2 flex-1">
+              <div className="h-5 w-44 bg-gray-200 rounded-lg" />
+              <div className="h-3.5 w-60 bg-gray-100 rounded-md" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+            <div className="h-16 bg-gray-50 rounded-2xl" />
+            <div className="h-16 bg-gray-50 rounded-2xl" />
+            <div className="h-16 bg-gray-50 rounded-2xl" />
+          </div>
+        </div>
+
+        {/* Integrations Skeleton */}
+        <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 animate-pulse">
+          <div className="h-5 w-52 bg-gray-200 rounded-lg" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="p-5 border border-[#E5E9F0] rounded-2xl space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-gray-200" />
+                <div className="h-4 w-28 bg-gray-200 rounded" />
+                <div className="h-3 w-full bg-gray-100 rounded" />
+                <div className="h-8 w-full bg-gray-100 rounded-xl mt-3" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-20 animate-fadeIn text-left">
 

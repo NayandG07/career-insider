@@ -19,68 +19,95 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
 
-// Restored strictly from TEMP navigation items
-const menuItems = [
-  { id: 'dashboard', name: 'Dashboard', icon: LayoutGrid },
-  { id: 'roadmap', name: 'Career Roadmap', icon: Compass },
-  { id: 'skills', name: 'Skill Intelligence', icon: Layers },
-  { id: 'companies', name: 'Company Matches', icon: Briefcase },
-  { id: 'projects', name: 'Projects', icon: FolderGit2 },
-  { id: 'ai-mentor', name: 'AI Mentor', icon: Sparkles },
-  { id: 'reports', name: 'Reports', icon: BarChart3 },
-  { id: 'settings', name: 'Settings', icon: SettingsIcon },
-  { id: 'admin', name: 'Admin', icon: Shield },
+// Categorized Menu Sections
+const NAV_SECTIONS = [
+  {
+    title: 'Workspace',
+    items: [
+      { id: 'dashboard', name: 'Dashboard', icon: LayoutGrid },
+      { id: 'roadmap', name: 'Career Roadmap', icon: Compass },
+      { id: 'skills', name: 'Skill Intelligence', icon: Layers },
+      { id: 'companies', name: 'Company Matches', icon: Briefcase },
+      { id: 'projects', name: 'Projects', icon: FolderGit2 },
+    ],
+  },
+  {
+    title: 'Intelligence',
+    items: [
+      { id: 'ai-mentor', name: 'AI Mentor', icon: Sparkles },
+      { id: 'reports', name: 'Reports', icon: BarChart3 },
+    ],
+  },
+  {
+    title: 'System',
+    items: [
+      { id: 'settings', name: 'Settings', icon: SettingsIcon },
+      { id: 'admin', name: 'Admin', icon: Shield },
+    ],
+  },
 ];
 
 // ─── Nav Items (shared between drawer and sidebar) ────────────────────────────
 
-function NavItems({ items, activePage, setActivePage, collapsed, onSelect }) {
+function NavItems({ activePage, setActivePage, collapsed, onSelect, userRole }) {
   const handleItemClick = (item) => {
     setActivePage(item.id);
     onSelect?.();
   };
 
   return (
-    <nav className="px-3 py-4 space-y-1">
-      {items.map((item) => {
-        const Icon = item.icon;
-        const isActive = activePage === item.id;
-        return (
-          <motion.button
-            key={item.id}
-            onClick={() => handleItemClick(item)}
-            whileHover={{ x: 2 }}
-            whileTap={{ scale: 0.98 }}
-            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-150 relative cursor-pointer group ${isActive
-                ? 'bg-[#F3F4F6]/50 text-[#7C3AED]'
-                : 'text-[#4B5563] hover:bg-[#F9FAFB] hover:text-[#111827]'
-              }`}
-            title={collapsed ? item.name : undefined}
-          >
-            <div className="flex items-center gap-3">
-              <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-[#7C3AED]' : 'text-[#9CA3AF] group-hover:text-[#4B5563]'
-                }`} />
-              {!collapsed && <span>{item.name}</span>}
-            </div>
+    <nav className="px-3 py-3 space-y-4">
+      {NAV_SECTIONS.map((section, sIdx) => {
+        const filteredItems = section.items.filter(item => {
+          if (item.id === 'admin') return userRole === 'admin';
+          return true;
+        });
 
-            {isActive && (
-              <motion.span
-                layoutId="active-indicator"
-                className="absolute right-0 top-2 bottom-2 w-[3px] bg-[#7C3AED] rounded-l-md"
-                transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-              />
+        if (filteredItems.length === 0) return null;
+
+        return (
+          <div key={sIdx} className="space-y-1">
+            {!collapsed && (
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#9CA3AF] px-3.5 py-1 block">
+                {section.title}
+              </span>
             )}
-          </motion.button>
+
+            {filteredItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activePage === item.id;
+              return (
+                <motion.button
+                  key={item.id}
+                  onClick={() => handleItemClick(item)}
+                  whileHover={{ x: collapsed ? 0 : 2 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-150 relative cursor-pointer group ${isActive
+                      ? 'bg-[#7C3AED]/10 text-[#7C3AED] font-bold'
+                      : 'text-[#4B5563] hover:bg-[#F9FAFB] hover:text-[#111827]'
+                    }`}
+                  title={collapsed ? item.name : undefined}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                      isActive ? 'bg-[#7C3AED] text-white shadow-2xs' : 'text-[#6B7280] group-hover:text-[#111827]'
+                    }`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    {!collapsed && <span className="tracking-tight">{item.name}</span>}
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
         );
       })}
     </nav>
   );
 }
 
-// ─── Desktop Sidebar ──────────────────────────────────────────────────────────
-
 export function DesktopSidebar({ activePage, setActivePage, collapsed, setCollapsed }) {
-  const { logout } = useApp();
+  const { userData, logout } = useApp();
 
   return (
     <div
@@ -102,16 +129,16 @@ export function DesktopSidebar({ activePage, setActivePage, collapsed, setCollap
         ) : (
           /* Expanded: logo icon + text + collapse button */
           <>
-            <div className="flex items-center gap-3 overflow-hidden">
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="w-8 h-8 rounded-lg bg-[#7C3AED] flex items-center justify-center shadow-lg shadow-purple-200 shrink-0 cursor-pointer"
-              >
+            <div
+              onClick={() => setActivePage('dashboard')}
+              className="flex items-center gap-3 overflow-hidden cursor-pointer group"
+              title="Go to Dashboard"
+            >
+              <div className="w-8 h-8 rounded-lg bg-[#7C3AED] flex items-center justify-center shadow-lg shadow-purple-200 shrink-0">
                 <Terminal className="w-4 h-4 text-white" />
-              </motion.div>
+              </div>
               <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
-                <span className="font-bold text-base text-[#111827] tracking-tight">CareerOS</span>
+                <span className="font-bold text-base text-[#111827] tracking-tight group-hover:text-[#7C3AED] transition-colors">CareerOS</span>
               </div>
             </div>
 
@@ -127,22 +154,22 @@ export function DesktopSidebar({ activePage, setActivePage, collapsed, setCollap
       </div>
 
       {/* Nav */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto no-scrollbar">
         <NavItems
-          items={menuItems}
           activePage={activePage}
           setActivePage={setActivePage}
           collapsed={collapsed}
+          userRole={userData?.role}
         />
       </div>
 
-      {/* Bottom Logout/Sign out */}
+      {/* Bottom Logout */}
       <div className="p-3 border-t border-[#F3F4F6] shrink-0">
         <motion.button
           onClick={logout}
           whileHover={{ x: collapsed ? 0 : 2 }}
           whileTap={{ scale: 0.98 }}
-          className={`w-full flex items-center px-4 py-2.5 rounded-xl text-[13px] font-semibold text-[#EF4444] hover:bg-red-50 hover:text-red-600 transition-all duration-150 relative cursor-pointer group ${collapsed ? 'justify-center' : 'gap-3'
+          className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#EF4444] hover:bg-red-50 hover:text-red-600 transition-all duration-150 relative cursor-pointer group ${collapsed ? 'justify-center' : 'gap-3'
             }`}
           title={collapsed ? "Log Out" : undefined}
         >
@@ -158,7 +185,7 @@ export function DesktopSidebar({ activePage, setActivePage, collapsed, setCollap
 // ─── Mobile Drawer ────────────────────────────────────────────────────────────
 
 export function MobileDrawer({ open, onClose, activePage, setActivePage }) {
-  const { logout } = useApp();
+  const { userData, logout } = useApp();
 
   return (
     <AnimatePresence>
@@ -184,12 +211,16 @@ export function MobileDrawer({ open, onClose, activePage, setActivePage }) {
           >
             {/* Header */}
             <div className="h-[72px] flex items-center justify-between px-5 border-b border-[#E5E9F0] shrink-0">
-              <div className="flex items-center gap-3">
+              <div
+                onClick={() => { setActivePage('dashboard'); onClose(); }}
+                className="flex items-center gap-3 cursor-pointer group"
+                title="Go to Dashboard"
+              >
                 <div className="w-8 h-8 rounded-lg bg-[#7C3AED] flex items-center justify-center shadow-lg shadow-purple-200">
                   <Terminal className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-base text-[#111827] tracking-tight">CareerOS</span>
+                  <span className="font-bold text-base text-[#111827] tracking-tight group-hover:text-[#7C3AED] transition-colors">CareerOS</span>
                   <span className="text-[8px] font-bold bg-[#EEF2FF] text-[#6366F1] px-1 py-0.5 rounded uppercase tracking-wider animate-pulse">
                     AI NATIVE
                   </span>
@@ -205,29 +236,27 @@ export function MobileDrawer({ open, onClose, activePage, setActivePage }) {
             </div>
 
             {/* Nav */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto no-scrollbar">
               <NavItems
-                items={menuItems}
                 activePage={activePage}
                 setActivePage={setActivePage}
                 collapsed={false}
                 onSelect={onClose}
+                userRole={userData?.role}
               />
             </div>
 
-            {/* Bottom Logout/Sign out */}
-            <div className="p-3 border-t border-[#E5E9F0] shrink-0">
+            {/* Bottom Logout */}
+            <div className="p-3 border-t border-[#F3F4F6] shrink-0 bg-[#FAFBFD]">
               <motion.button
                 onClick={() => { logout(); onClose(); }}
-                whileHover={{ x: 2 }}
                 whileTap={{ scale: 0.98 }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-[#EF4444] hover:bg-red-50 hover:text-red-600 transition-all duration-150 relative cursor-pointer group"
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-[#EF4444] hover:bg-red-50 hover:text-red-600 transition-all cursor-pointer"
               >
-                <LogOut className="w-5 h-5 shrink-0 text-[#EF4444] group-hover:text-red-600" />
+                <LogOut className="w-4 h-4 shrink-0 text-[#EF4444]" />
                 <span>Log Out</span>
               </motion.button>
             </div>
-
           </motion.div>
         </>
       )}

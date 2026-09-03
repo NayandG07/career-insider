@@ -1,4 +1,5 @@
 import axios from 'axios';
+import User from '../models/User.js';
 import Telemetry from '../models/Telemetry.js';
 import SkillProfile from '../models/SkillProfile.js';
 import Roadmap from '../models/Roadmap.js';
@@ -12,18 +13,22 @@ const getAiUrl = () => process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000';
 async function checkUserReadiness(user) {
   const hasLeetCode = Boolean(user?.connectedSources?.leetcode?.trim());
   const hasCodeforces = Boolean(user?.connectedSources?.codeforces?.trim());
+  const hasGitHub = Boolean(user?.connectedSources?.github?.trim() || user?.auth?.github?.username);
   const projects = await Project.find({ userId: user._id });
   const hasProject = projects.length > 0;
-  const isReady = hasLeetCode && hasCodeforces && hasProject;
+  
+  // Either condition: user has connected at least one profile or added a project
+  const isReady = hasLeetCode || hasCodeforces || hasGitHub || hasProject;
 
   const missing = [];
-  if (!hasLeetCode) missing.push('LeetCode account connection');
-  if (!hasCodeforces) missing.push('Codeforces handle connection');
-  if (!hasProject) missing.push('At least 1 showcase project');
+  if (!isReady) {
+    missing.push('Connect at least one platform (GitHub, LeetCode, Codeforces) or add a showcase project');
+  }
 
   return {
     leetcode: hasLeetCode,
     codeforces: hasCodeforces,
+    github: hasGitHub,
     hasProject,
     ready: isReady,
     missing,
@@ -44,6 +49,7 @@ export const getSkillProfile = async (req, res) => {
         readiness: {
           leetcode: readiness.leetcode,
           codeforces: readiness.codeforces,
+          github: readiness.github,
           hasProject: readiness.hasProject,
           ready: false,
           missing: readiness.missing,
@@ -223,7 +229,7 @@ export const analyzeSkills = async (req, res) => {
     );
 
     // Update user readiness score & snapshot history
-    await req.user.updateOne({
+    await User.findByIdAndUpdate(req.user._id, {
       readinessScore,
       lastAnalyzedAt: new Date(),
       $push: {
@@ -376,6 +382,7 @@ export const getRoadmap = async (req, res) => {
         readiness: {
           leetcode: readiness.leetcode,
           codeforces: readiness.codeforces,
+          github: readiness.github,
           hasProject: readiness.hasProject,
           ready: false,
           missing: readiness.missing,
@@ -635,26 +642,64 @@ export const mentorChat = async (req, res) => {
       Project.find({ userId: req.user._id }).select('title technologies repositoryUrl liveUrl'),
     ]);
 
-    const aiResponse = await axios.post(
-      `${getAiUrl()}/ai/mentor/chat`,
-      {
-        message,
-        chat_history: existingMessages.map((m) => ({ role: m.sender, content: m.text })),
-        user_context: {
-          name: req.user.name,
-          readinessScore: req.user.readinessScore || skillProfile?.readinessScore || 50,
-          target_roles: roadmap?.targetRoles || [req.user?.targetRole || 'Full-Stack Software Engineer'],
-          skill_profile: skillProfile ? skillProfile.toObject() : {},
-          roadmap: roadmap ? roadmap.toObject() : {},
-          projects: projects ? projects.map(p => p.toObject()) : [],
-          tagged_context: taggedContext || null,
-          coach_mode: coachMode || 'general',
-        },
-      },
-      { timeout: 60000 }
-    );
+    const hasLeetCode = Boolean(req.user?.connectedSources?.leetcode?.trim());
+    const hasCodeforces = Boolean(req.user?.connectedSources?.codeforces?.trim());
+    const hasGitHub = Boolean(req.user?.connectedSources?.github?.trim() || req.user?.auth?.github?.username);
+    const hasProject = Array.isArray(projects) && projects.length > 0;
+    const prompt = (message || '').toLowerCase();
 
-    const mentorReply = aiResponse.data.response || '';
+    let smartReply = null;
+
+    // Rule A: If user only has Codeforces connected and asks about projects, LeetCode, or overall readiness
+    if (hasCodeforces && !hasLeetCode && !hasGitHub && !hasProject) {
+      if (prompt.includes('project') || prompt.includes('leetcode') || prompt.includes('github') || prompt.includes('repo') || prompt.includes('dsa') || prompt.includes('ready') || prompt.includes('score')) {
+        smartReply = `Looking at your verified telemetry, you currently have Codeforces connected with an active rating and contest track record (@${req.user.connectedSources.codeforces}). However, your LeetCode, GitHub, and showcase projects are not yet linked.\n\nOnce you connect LeetCode and add your development projects in Settings, I will be able to synthesize your algorithmic strength with your software engineering footprint for a comprehensive career benchmark!`;
+      }
+    }
+
+    // Rule B: If user asks specifically about LeetCode/DSA metrics, but LeetCode is not connected
+    if (!smartReply && !hasLeetCode && (prompt.includes('leetcode') || prompt.includes('easy/medium') || (prompt.includes('dsa') && prompt.includes('solve')) || prompt.includes('acceptance rate') || prompt.includes('problem solving metrics'))) {
+      const sources = [];
+      if (hasCodeforces) sources.push(`Codeforces (@${req.user.connectedSources.codeforces})`);
+      if (hasGitHub) sources.push(`GitHub (@${req.user.connectedSources?.github || req.user?.auth?.github?.username})`);
+      if (hasProject) sources.push(`${projects.length} showcase project${projects.length > 1 ? 's' : ''}`);
+
+      const sourcesText = sources.length > 0 
+        ? `Currently, I only have access to your verified data from ${sources.join(' and ')}.` 
+        : `Currently, I don't see any connected problem-solving accounts in your workspace.`;
+
+      smartReply = `I've analyzed your question regarding LeetCode problem solving. However, your LeetCode account is not connected yet. ${sourcesText}\n\nTo unlock verified analysis of your algorithmic problem solving, easy/medium/hard breakdown, and topic masteries, please connect your LeetCode username in Settings!`;
+    }
+
+    // Rule C: If user asks about projects/codebase, but has no projects and no GitHub connected
+    if (!smartReply && !hasProject && !hasGitHub && (prompt.includes('project') || prompt.includes('repository') || prompt.includes('repos') || prompt.includes('codebase') || prompt.includes('github') || prompt.includes('tech stack'))) {
+      const cfText = hasCodeforces ? `I can see your competitive programming rating on Codeforces (@${req.user.connectedSources.codeforces}), but ` : ``;
+      smartReply = `I've evaluated your portfolio inquiry. ${cfText}I don't find any showcase projects or connected GitHub repositories in your workspace.\n\nTo analyze your production architecture, tech stack competencies, and code consistency, please add a showcase project or connect your GitHub profile in Settings!`;
+    }
+
+    let mentorReply = smartReply;
+
+    if (!mentorReply) {
+      const aiResponse = await axios.post(
+        `${getAiUrl()}/ai/mentor/chat`,
+        {
+          message,
+          chat_history: existingMessages.map((m) => ({ role: m.sender, content: m.text })),
+          user_context: {
+            name: req.user.name,
+            readinessScore: req.user.readinessScore || skillProfile?.readinessScore || 50,
+            target_roles: roadmap?.targetRoles || [req.user?.targetRole || 'Full-Stack Software Engineer'],
+            skill_profile: skillProfile ? skillProfile.toObject() : {},
+            roadmap: roadmap ? roadmap.toObject() : {},
+            projects: projects ? projects.map(p => p.toObject()) : [],
+            tagged_context: taggedContext || null,
+            coach_mode: coachMode || 'general',
+          },
+        },
+        { timeout: 60000 }
+      );
+      mentorReply = aiResponse.data.response || '';
+    }
 
     mentorTask.success({
       responseLen: `${mentorReply.length} chars`,

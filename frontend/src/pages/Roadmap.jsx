@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
 import {
   Sparkles,
@@ -230,13 +231,106 @@ export default function Roadmap({ setActivePage }) {
         featureName="Career Roadmap"
         readiness={readiness}
         setActivePage={setActivePage}
-        description="Connect your LeetCode, Codeforces, and add at least one project so AI can chart your personalized milestone path."
+        description="Connect at least one developer profile (GitHub, LeetCode, Codeforces) or add a showcase project so AI can chart your personalized milestone path."
       />
     );
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // STATE A: FIRST VISIT (NO SAVED ROADMAP EXISTS YET)
+  // LOADING STATE (While saved roadmap is being initialized from database)
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (!hasInitialized && !roadmap) {
+    return (
+      <div className="space-y-6 pb-16 text-left animate-fadeIn max-w-6xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-white border border-[#E5E9F0] rounded-3xl animate-pulse shadow-xs">
+          <div className="space-y-2.5">
+            <div className="h-6 w-48 bg-gray-200 rounded-lg" />
+            <div className="h-4 w-72 bg-gray-100 rounded-md" />
+          </div>
+          <div className="h-10 w-32 bg-gray-200 rounded-xl" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8 space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="p-6 bg-white border border-[#E5E9F0] rounded-3xl space-y-3 animate-pulse shadow-2xs">
+                <div className="h-5 w-40 bg-gray-200 rounded-lg" />
+                <div className="h-4 w-full bg-gray-100 rounded-md" />
+                <div className="h-4 w-3/4 bg-gray-100 rounded-md" />
+              </div>
+            ))}
+          </div>
+          <div className="lg:col-span-4 p-6 bg-white border border-[#E5E9F0] rounded-3xl animate-pulse space-y-4 shadow-2xs">
+            <div className="h-6 w-32 bg-gray-200 rounded-lg" />
+            <div className="h-24 w-full bg-gray-100 rounded-2xl" />
+            <div className="h-24 w-full bg-gray-100 rounded-2xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ACTIVE AI ROADMAP SYNTHESIS SKELETON (While AI is generating or updating)
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (isGenerating) {
+    return (
+      <div className="space-y-6 pb-16 text-left animate-fadeIn max-w-6xl mx-auto">
+        {/* Active AI Generation Banner */}
+        <div className="p-5 bg-gradient-to-r from-purple-50 via-purple-50/80 to-indigo-50 border border-purple-200 rounded-3xl flex items-center justify-between gap-4 shadow-sm animate-pulse">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center text-[#7C3AED] shrink-0">
+              <Sparkles className="w-5 h-5 animate-spin" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[#7C3AED]">AI Roadmap Synthesis Active</h3>
+              <p className="text-xs font-semibold text-purple-700 mt-0.5">Synthesizing milestones, prerequisite dependencies, and estimated study paths…</p>
+            </div>
+          </div>
+          <span className="text-[10px] font-extrabold uppercase tracking-wider px-3 py-1 bg-white/90 rounded-xl text-[#7C3AED] border border-purple-200 shadow-3xs shrink-0">
+            Synthesizing
+          </span>
+        </div>
+
+        {/* Learning Path Timeline Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8 space-y-4">
+            <div className="flex justify-between items-center px-1">
+              <div className="h-5 w-52 bg-gray-200 rounded-lg animate-pulse" />
+              <div className="h-4 w-28 bg-gray-100 rounded-md animate-pulse" />
+            </div>
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="p-6 bg-white border border-[#E5E9F0] rounded-3xl space-y-3.5 shadow-2xs animate-pulse">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-xl bg-purple-100" />
+                    <div className="h-5 w-44 bg-gray-200 rounded-lg" />
+                  </div>
+                  <div className="h-5 w-20 bg-gray-100 rounded-lg" />
+                </div>
+                <div className="h-4 w-full bg-gray-100 rounded-md" />
+                <div className="h-4 w-4/5 bg-gray-100 rounded-md" />
+                <div className="flex gap-2 pt-2 border-t border-gray-100">
+                  <div className="h-6 w-24 bg-gray-100 rounded-lg" />
+                  <div className="h-6 w-20 bg-gray-100 rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="lg:col-span-4 p-6 bg-white border border-[#E5E9F0] rounded-3xl space-y-4 shadow-2xs h-fit animate-pulse">
+            <div className="h-5 w-40 bg-gray-200 rounded-lg" />
+            <div className="h-28 w-full bg-gray-100 rounded-2xl" />
+            <div className="h-24 w-full bg-gray-100 rounded-2xl" />
+            <div className="h-24 w-full bg-gray-100 rounded-2xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STATE A: FIRST VISIT (NO SAVED ROADMAP EXISTS YET IN DATABASE)
   // ─────────────────────────────────────────────────────────────────────────────
   if (!roadmap) {
     return (
@@ -693,7 +787,7 @@ export default function Roadmap({ setActivePage }) {
 
         {/* Right Column (4 cols): Selected Milestone Deep-Dive Inspector */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-5 sticky top-6">
+          <div className="bg-white border border-[#E5E9F0] rounded-3xl p-6 shadow-xs space-y-5 sticky top-[88px] max-h-[calc(100vh-108px)] overflow-y-auto no-scrollbar">
 
             <div className="flex items-center justify-between pb-3 border-b border-[#F3F4F6]">
               <span className="text-[10px] font-bold text-[#7C3AED] uppercase tracking-wider">
@@ -784,111 +878,118 @@ export default function Roadmap({ setActivePage }) {
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────────
-          TRACK SETTINGS POPOVER / MODAL
+          TRACK SETTINGS POPOVER / MODAL (Portaled to document.body)
           ───────────────────────────────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {isSettingsOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-7 shadow-2xl w-full max-w-lg space-y-6 text-left"
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isSettingsOpen && (
+            <div 
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs"
+              onClick={handleCloseSettings}
             >
-              <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-4">
-                <div className="flex items-center gap-2">
-                  <Settings className="w-4 h-4 text-[#7C3AED]" />
-                  <h3 className="text-sm font-bold text-[#111827]">
-                    Roadmap Track Settings
-                  </h3>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white border border-[#E5E9F0] rounded-3xl p-6 sm:p-7 shadow-2xl w-full max-w-lg space-y-6 text-left"
+              >
+                <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-4">
+                  <div className="flex items-center gap-2">
+                    <Settings className="w-4 h-4 text-[#7C3AED]" />
+                    <h3 className="text-sm font-bold text-[#111827]">
+                      Roadmap Track Settings
+                    </h3>
+                  </div>
+                  <button
+                    onClick={handleCloseSettings}
+                    className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center cursor-pointer transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                <button
-                  onClick={handleCloseSettings}
-                  className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center cursor-pointer transition-all"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
 
-              {/* Roles Multi-Select List */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold">
-                  <span className="text-[#6B7280]">Target Career Destinations</span>
-                  <span className="text-[#7C3AED]">{pendingRoles.length} selected</span>
+                {/* Roles Multi-Select List */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-[#6B7280]">Target Career Destinations</span>
+                    <span className="text-[#7C3AED]">{pendingRoles.length} selected</span>
+                  </div>
+
+                  <div className="space-y-2 max-h-56 overflow-y-auto no-scrollbar pr-0.5">
+                    {ROLE_OPTIONS.map((role) => {
+                      const isChecked = pendingRoles.includes(role.id);
+                      return (
+                        <div
+                          key={role.id}
+                          onClick={() => handleTogglePendingRole(role.id)}
+                          className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${isChecked
+                            ? 'bg-purple-50/50 border-[#7C3AED] text-[#111827]'
+                            : 'bg-[#FAFBFC] border-[#E5E9F0] text-[#4B5563] hover:bg-white'
+                            }`}
+                        >
+                          <div>
+                            <h5 className="text-xs font-bold">{role.label}</h5>
+                            <p className="text-[10px] text-[#6B7280]">{role.desc}</p>
+                          </div>
+                          <div className={`w-4 h-4 rounded-md flex items-center justify-center border shrink-0 ${isChecked ? 'bg-[#7C3AED] border-[#7C3AED] text-white' : 'border-[#CBD5E1] bg-white'
+                            }`}>
+                            {isChecked && <CheckCircle2 className="w-3 h-3" />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {ROLE_OPTIONS.map((role) => {
-                    const isChecked = pendingRoles.includes(role.id);
-                    return (
-                      <div
-                        key={role.id}
-                        onClick={() => handleTogglePendingRole(role.id)}
-                        className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${isChecked
-                          ? 'bg-purple-50/50 border-[#7C3AED] text-[#111827]'
-                          : 'bg-[#FAFBFC] border-[#E5E9F0] text-[#4B5563] hover:bg-white'
+                {/* Weekly Time Budget Selector */}
+                <div className="space-y-2 pt-2 border-t border-[#F3F4F6]">
+                  <span className="text-xs font-bold text-[#6B7280] block">Weekly Time Budget</span>
+                  <div className="flex items-center gap-2">
+                    {WEEKLY_BUDGETS.map(hours => (
+                      <button
+                        key={hours}
+                        type="button"
+                        onClick={() => setPendingWeeklyHours(hours)}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${pendingWeeklyHours === hours
+                          ? 'bg-[#111827] text-white shadow-2xs'
+                          : 'bg-[#FAFBFC] border border-[#E5E9F0] text-[#4B5563] hover:bg-gray-100'
                           }`}
                       >
-                        <div>
-                          <h5 className="text-xs font-bold">{role.label}</h5>
-                          <p className="text-[10px] text-[#6B7280]">{role.desc}</p>
-                        </div>
-                        <div className={`w-4 h-4 rounded-md flex items-center justify-center border shrink-0 ${isChecked ? 'bg-[#7C3AED] border-[#7C3AED] text-white' : 'border-[#CBD5E1] bg-white'
-                          }`}>
-                          {isChecked && <CheckCircle2 className="w-3 h-3" />}
-                        </div>
-                      </div>
-                    );
-                  })}
+                        {hours}h / wk
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Weekly Time Budget Selector */}
-              <div className="space-y-2 pt-2 border-t border-[#F3F4F6]">
-                <span className="text-xs font-bold text-[#6B7280] block">Weekly Time Budget</span>
-                <div className="flex items-center gap-2">
-                  {WEEKLY_BUDGETS.map(hours => (
-                    <button
-                      key={hours}
-                      type="button"
-                      onClick={() => setPendingWeeklyHours(hours)}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${pendingWeeklyHours === hours
-                        ? 'bg-[#111827] text-white shadow-2xs'
-                        : 'bg-[#FAFBFC] border border-[#E5E9F0] text-[#4B5563] hover:bg-gray-100'
-                        }`}
-                    >
-                      {hours}h / wk
-                    </button>
-                  ))}
+                {/* Modal Footer Actions */}
+                <div className="flex items-center justify-between gap-3 pt-4 border-t border-[#F3F4F6]">
+                  <button
+                    type="button"
+                    onClick={handleCloseSettings}
+                    className="px-4 py-2.5 text-xs font-bold text-[#6B7280] hover:text-[#111827] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+
+                  <motion.button
+                    whileHover={{ scale: isSettingsDirty && pendingRoles.length > 0 ? 1.02 : 1 }}
+                    whileTap={{ scale: isSettingsDirty && pendingRoles.length > 0 ? 0.98 : 1 }}
+                    onClick={handleRegenerateFromSettings}
+                    disabled={!isSettingsDirty || pendingRoles.length === 0}
+                    className="px-5 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-40 text-white font-extrabold text-xs rounded-xl shadow-xs cursor-pointer disabled:cursor-not-allowed flex items-center gap-2 transition-all"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Regenerate Roadmap</span>
+                  </motion.button>
                 </div>
-              </div>
 
-              {/* Modal Footer Actions */}
-              <div className="flex items-center justify-between gap-3 pt-4 border-t border-[#F3F4F6]">
-                <button
-                  type="button"
-                  onClick={handleCloseSettings}
-                  className="px-4 py-2.5 text-xs font-bold text-[#6B7280] hover:text-[#111827] cursor-pointer"
-                >
-                  Cancel
-                </button>
-
-                <motion.button
-                  whileHover={{ scale: isSettingsDirty && pendingRoles.length > 0 ? 1.02 : 1 }}
-                  whileTap={{ scale: isSettingsDirty && pendingRoles.length > 0 ? 0.98 : 1 }}
-                  onClick={handleRegenerateFromSettings}
-                  disabled={!isSettingsDirty || pendingRoles.length === 0}
-                  className="px-5 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-40 text-white font-extrabold text-xs rounded-xl shadow-xs cursor-pointer disabled:cursor-not-allowed flex items-center gap-2 transition-all"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Regenerate Roadmap</span>
-                </motion.button>
-              </div>
-
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
     </div>
   );

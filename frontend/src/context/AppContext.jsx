@@ -24,26 +24,30 @@ export const AppProvider = ({ children }) => {
   // Role is derived from the authenticated backend user
   const isAdmin = userData?.role === 'admin';
 
-  // ─── Single Canonical Readiness Gate ─────────────────────────────────────────
+  // ─── Single Canonical Readiness Gate (EITHER Condition) ─────────────────────
   const hasLeetCode = Boolean(userData?.connectedSources?.leetcode?.trim());
   const hasCodeforces = Boolean(userData?.connectedSources?.codeforces?.trim());
+  const hasGitHub = Boolean(userData?.connectedSources?.github?.trim() || userData?.auth?.github?.username);
   const hasProject = Array.isArray(projects) && projects.length > 0;
-  const isReady = hasLeetCode && hasCodeforces && hasProject;
+  
+  // Either condition: user is good to go as long as AT LEAST ONE is connected/added
+  const isReady = hasLeetCode || hasCodeforces || hasGitHub || hasProject;
 
   const readiness = useMemo(() => {
     const missing = [];
-    if (!hasLeetCode) missing.push('LeetCode account connection');
-    if (!hasCodeforces) missing.push('Codeforces handle connection');
-    if (!hasProject) missing.push('At least 1 showcase project');
+    if (!isReady) {
+      missing.push('Connect at least one platform (GitHub, LeetCode, Codeforces) or add a showcase project');
+    }
 
     return {
       leetcode: hasLeetCode,
       codeforces: hasCodeforces,
+      github: hasGitHub,
       hasProject: hasProject,
       ready: isReady,
       missing,
     };
-  }, [hasLeetCode, hasCodeforces, hasProject, isReady]);
+  }, [hasLeetCode, hasCodeforces, hasGitHub, hasProject, isReady]);
 
   // Load initial user data if authenticated
   useEffect(() => {
@@ -57,14 +61,18 @@ export const AppProvider = ({ children }) => {
   const loadInitialData = async () => {
     setIsLoading(true);
     try {
-      const [userRes, telRes, projRes] = await Promise.all([
+      const [userRes, telRes, projRes, roadmapRes, skillsRes] = await Promise.all([
         userService.getMe(),
         telemetryService.getTelemetry().catch(() => null),
         projectService.getProjects().catch(() => []),
+        aiService.getRoadmap().catch(() => null),
+        aiService.getSkillProfile().catch(() => null),
       ]);
       setUserData(userRes);
       setTelemetry(telRes);
       setProjects(projRes || []);
+      if (roadmapRes?.roadmap) setRoadmap(roadmapRes.roadmap);
+      if (skillsRes?.profile) setSkills(skillsRes.profile);
     } catch (err) {
       console.warn('Initial user data fetch issue:', err?.message || err);
       // Only log out if the server explicitly responded with 401/403 (unauthorized token).
@@ -112,14 +120,18 @@ export const AppProvider = ({ children }) => {
 
   const refreshUser = useCallback(async () => {
     try {
-      const [userRes, telRes, projRes] = await Promise.all([
+      const [userRes, telRes, projRes, roadmapRes, skillsRes] = await Promise.all([
         userService.getMe(),
         telemetryService.getTelemetry().catch(() => null),
         projectService.getProjects().catch(() => []),
+        aiService.getRoadmap().catch(() => null),
+        aiService.getSkillProfile().catch(() => null),
       ]);
       setUserData(userRes);
       setTelemetry(telRes);
       setProjects(projRes || []);
+      if (roadmapRes?.roadmap) setRoadmap(roadmapRes.roadmap);
+      if (skillsRes?.profile) setSkills(skillsRes.profile);
       return { user: userRes, telemetry: telRes, projects: projRes };
     } catch (err) {
       console.error('Failed to refresh user data', err);

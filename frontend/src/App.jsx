@@ -169,7 +169,7 @@ function MainAppContent() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F6F8FC] font-sans text-[#111827]">
+    <div className="flex min-h-screen bg-[#F4F6FB] font-sans text-[#111827]">
 
       {/* Desktop Sidebar — hidden on mobile via CSS */}
       <div className="hidden md:block">
@@ -203,7 +203,11 @@ function MainAppContent() {
         />
 
         {/* Dynamic Content Body with Smooth Page Transitions */}
-        <main className="flex-1 px-4 sm:px-6 md:px-8 py-6 md:py-8 w-full max-w-[1280px] mx-auto">
+        <main className={`flex-1 px-4 sm:px-6 md:px-8 w-full max-w-[1280px] mx-auto ${
+          activePage === 'ai-mentor' 
+            ? 'py-2 md:py-3 h-[calc(100dvh-72px)] overflow-hidden flex flex-col' 
+            : 'py-6 md:py-8'
+        }`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={activePage}
@@ -211,6 +215,7 @@ function MainAppContent() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
+              className={activePage === 'ai-mentor' ? 'h-full flex-1 flex flex-col overflow-hidden min-h-0' : ''}
             >
               {renderPage()}
             </motion.div>

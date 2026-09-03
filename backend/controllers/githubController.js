@@ -233,3 +233,63 @@ export const disconnectGithub = async (req, res) => {
     res.status(500).json({ error: 'Failed to disconnect GitHub.' });
   }
 };
+
+/**
+ * GET /api/github/contributions
+ * Fetch GitHub contribution calendar and commit count for a specific year.
+ */
+export const getContributionsByYear = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('+auth.github.accessToken');
+    const username = user?.connectedSources?.github || user?.auth?.github?.username;
+    if (!username) {
+      return res.status(400).json({ error: 'GitHub account is not connected.' });
+    }
+
+    const year = parseInt(req.query.year, 10) || new Date().getFullYear();
+    const token = user?.auth?.github?.accessToken || null;
+    const { fetchContributionsGraphQL, fetchContributionsForYear } = await import('../services/githubService.js');
+    
+    let data = null;
+    if (token) {
+      const gqlData = await fetchContributionsGraphQL(username, token, [year]);
+      if (gqlData && gqlData[year]) {
+        data = gqlData[year];
+      }
+    }
+
+    if (!data) {
+      data = await fetchContributionsForYear(username, year);
+    }
+
+    if (!data) {
+      return res.status(404).json({ error: 'Could not fetch contributions for year ' + year });
+    }
+
+    // Persist in Telemetry model so subsequent requests are instantaneous
+    try {
+      const Telemetry = (await import('../models/Telemetry.js')).default;
+      const telemetryDoc = await Telemetry.findOne({ userId: req.user._id, source: 'github' });
+      if (telemetryDoc && telemetryDoc.data) {
+        if (!telemetryDoc.data.yearlyContributions) {
+          telemetryDoc.data.yearlyContributions = {};
+        }
+        telemetryDoc.data.yearlyContributions[year] = data;
+        telemetryDoc.markModified('data');
+        await telemetryDoc.save();
+      }
+    } catch {
+      // Telemetry cache update is non-blocking
+    }
+
+    res.json({
+      year,
+      totalContributions: data.totalContributions,
+      submissionCalendar: data.submissionCalendar,
+    });
+  } catch (error) {
+    console.error('Get GitHub contributions error:', error);
+    res.status(500).json({ error: 'Failed to fetch GitHub contributions.' });
+  }
+};
+
